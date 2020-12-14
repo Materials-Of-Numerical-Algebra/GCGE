@@ -19,7 +19,8 @@ PHGFLAGS     = -Wall -Wmissing-field-initializers -D__PHG__
 PHGINC       = -I${PHG_DIR}/include
 LIBPHG       = -L/share/home/hhxie/soft/phg/lib  -L/share/soft/intel_2018_update1/compilers_and_libraries_2018.1.163/linux/mpi/intel64/lib -L/share/home/hhxie/soft/petsc/lib -L/share/home/hhxie/soft/hypre/lib -L/share/home/hhxie/soft/slepc/lib -Wl,-rpath,/share/home/hhxie/soft/phg/lib -lphg  -lmpfr  -lgmp  -Wl,-rpath,/share/home/hhxie/soft/slepc/lib  -lslepc  /share/soft/intel_2018_update1/compilers_and_libraries_2018.1.163/linux/mkl/lib/intel64/libmkl_scalapack_lp64.a  /share/soft/intel_2018_update1/compilers_and_libraries_2018.1.163/linux/mkl/lib/intel64/libmkl_lapack95_lp64.a  /share/soft/intel_2018_update1/compilers_and_libraries_2018.1.163/linux/mkl/lib/intel64/libmkl_blas95_lp64.a  -Wl,-rpath,/share/home/hhxie/soft/petsc/lib -L/share/home/hhxie/soft/petsc/lib -Wl,-rpath,/share/home/hhxie/soft/mumps/lib -L/share/home/hhxie/soft/mumps/lib -Wl,-rpath,/share/soft/intel_2018_update1/compilers_and_libraries_2018.1.163/linux/mkl/lib/intel64 -L/share/soft/intel_2018_update1/compilers_and_libraries_2018.1.163/linux/mkl/lib/intel64 -Wl,-rpath,/share/home/hhxie/soft/hypre/lib -L/share/home/hhxie/soft/hypre/lib -Wl,-rpath,/share/soft/intel_2018_update1/compilers_and_libraries_2018.1.163/linux/mpi/intel64/lib/release_mt -L/share/soft/intel_2018_update1/compilers_and_libraries_2018.1.163/linux/mpi/intel64/lib/release_mt -Wl,-rpath,/share/soft/intel_2018_update1/compilers_and_libraries_2018.1.163/linux/mpi/intel64/lib -Wl,-rpath,/share/soft/intel_2018_update1/compilers_and_libraries_2018.1.163/linux/ipp/lib/intel64 -Wl,-rpath,/share/soft/intel_2018_update1/compilers_and_libraries_2018.1.163/linux/compiler/lib/intel64_lin -Wl,-rpath,/share/soft/intel_2018_update1/compilers_and_libraries_2018.1.163/linux/mkl/lib/intel64_lin -Wl,-rpath,/share/soft/intel_2018_update1/compilers_and_libraries_2018.1.163/linux/tbb/lib/intel64/gcc4.7 -Wl,-rpath,/share/soft/intel_2018_update1/compilers_and_libraries_2018.1.163/linux/daal/lib/intel64_lin -Wl,-rpath,/share/soft/intel_2018_update1/compilers_and_libraries_2018.1.163/linux/tbb/lib/intel64_lin/gcc4.4 -L/share/soft/intel_2018_update1/compilers_and_libraries_2018.1.163/linux/tbb/lib/intel64_lin/gcc4.4 -Wl,-rpath,/soft/intel_2018_update1/compilers_and_libraries_2018.1.163/linux/compiler/lib/intel64_lin -L/soft/intel_2018_update1/compilers_and_libraries_2018.1.163/linux/compiler/lib/intel64_lin -Wl,-rpath,/usr/lib/gcc/x86_64-redhat-linux/4.8.5 -Wl,-rpath,/opt/intel/mpi-rt/2017.0.0/intel64/lib/release_mt -Wl,-rpath,/opt/intel/mpi-rt/2017.0.0/intel64/lib -lpetsc -lmumps -lmkl_scalapack_lp64 -lHYPRE -lmpicxx -lmkl_lapack95_lp64 -lmkl_blas95_lp64 -lssl -lcrypto -lmpi -lifport -lifcoremt_pic -lmpicxx -lifcore -ldl -lmpifort -lmpi -lmpigi -lrt -lpthread -lmkl_intel_lp64 -lmkl_cdft_core -lmkl_scalapack_lp64 -lmkl_blacs_intelmpi_lp64 -lmkl_sequential -lmkl_core -liomp5 -limf -lsvml -lirng -lm -lipgo -ldecimal -lcilkrts -lstdc++ -lgcc_s -lirc -lirc_s -ldl  -lmpi  -lm  -L/share/soft/intel_2018_update1/compilers_and_libraries_2018.1.163/linux/mpi/intel64/lib/debug_mt -L/share/soft/intel_2018_update1/compilers_and_libraries_2018.1.163/linux/mpi/intel64/lib -L/usr/lib/gcc/x86_64-redhat-linux/4.8.5 -L/usr/lib/gcc/x86_64-redhat-linux/4.8.5/../../../../lib64 -L/lib/../lib64 -L/usr/lib/../lib64 -L/share/soft/intel_2018_update1/compilers_and_libraries_2018.1.163/linux/ipp/lib/intel64 -L/share/soft/intel_2018_update1/compilers_and_libraries_2018.1.163/linux/compiler/lib/intel64_lin -L/share/soft/intel_2018_update1/compilers_and_libraries_2018.1.163/linux/mkl/lib/intel64_lin -L/share/soft/intel_2018_update1/compilers_and_libraries_2018.1.163/linux/tbb/lib/intel64/gcc4.7 -L/share/soft/intel_2018_update1/compilers_and_libraries_2018.1.163/linux/daal/lib/intel64_lin -L/share/soft/intel_2018_update1/compilers_and_libraries_2018.1.163/linux/daal/../tbb/lib/intel64_lin/gcc4.4 -L/usr/lib/gcc/x86_64-redhat-linux/4.8.5/../../.. -lgfortran -lm -lmpifort -lmpi -lmpigi -ldl -lrt -lpthread -lquadmath  -lgfortran -lm -lmpifort -lmpi -lmpigi -ldl -lrt -lpthread -lquadmath -Wl,-rpath,/usr/local/lib -Wl,-rpath,/usr/local/lib64
 
-DEBUG        = -g
+#DEBUG        = -g3 -DMEMWATCH -DMW_STDIO
+DEBUG        =
 
 F77          = mpiifort -O3 -fPIC $(DEBUG)
 CC           = mpiicc   -O3 -fPIC $(DEBUG)
@@ -27,14 +28,14 @@ CPP          = mpiicpc  -O3 -fPIC $(DEBUG)
 EXEC         = mpiexec
 EXECFLAGS    = -n 2
 
-OBJ      = main.o app_lapack.o ops.o ops_eig_sol_gcg.o ops_lin_sol.o ops_multi_grid.o ops_multi_vec.o ops_orth.o testNew/test_eig_sol.o testNew/test_lin_sol.o testNew/test_multi_grid.o testNew/test_multi_vec.o testNew/test_orth.o testNew/test_vec.o app_pas.o ops_eig_sol_pas.o app_slepc.o testNew/test_app_lapack.o testNew/test_app_slepc.o testNew/get_mat_phg.o testNew/mat_convert_phg2petsc.o
-LINKOBJ  = main.o app_lapack.o ops.o ops_eig_sol_gcg.o ops_lin_sol.o ops_multi_grid.o ops_multi_vec.o ops_orth.o testNew/test_eig_sol.o testNew/test_lin_sol.o testNew/test_multi_grid.o testNew/test_multi_vec.o testNew/test_orth.o testNew/test_vec.o app_pas.o ops_eig_sol_pas.o app_slepc.o testNew/test_app_lapack.o testNew/test_app_slepc.o testNew/get_mat_phg.o testNew/mat_convert_phg2petsc.o
+OBJ      = main.o get_mat_phg.o mat_convert.o memwatch.o test_app_ccs.o test_app_lapack.o test_app_slepc.o test_eig_sol_gcg.o test_lin_sol.o test_multi_grid.o test_multi_vec.o test_orth.o test_vec.o ../src/ops.o ../src/ops_eig_sol_gcg.o ../src/ops_lin_sol.o ../src/ops_multi_grid.o ../src/ops_multi_vec.o ../src/ops_orth.o ../app/app_ccs.o ../app/app_lapack.o ../app/app_matlab.o ../app/app_pas.o ../app/app_slepc.o ../src/ops_eig_sol_pas.o
+LINKOBJ  = main.o get_mat_phg.o mat_convert.o memwatch.o test_app_ccs.o test_app_lapack.o test_app_slepc.o test_eig_sol_gcg.o test_lin_sol.o test_multi_grid.o test_multi_vec.o test_orth.o test_vec.o ../src/ops.o ../src/ops_eig_sol_gcg.o ../src/ops_lin_sol.o ../src/ops_multi_grid.o ../src/ops_multi_vec.o ../src/ops_orth.o ../app/app_ccs.o ../app/app_lapack.o ../app/app_matlab.o ../app/app_pas.o ../app/app_slepc.o ../src/ops_eig_sol_pas.o
 LIBS     = $(LIBSLEPC) $(LIBPHG)
-INCS     = $(SLEPCINC)
+INCS     = $(SLEPCINC) -I../src -I../app
 CXXINCS  = 
 BIN      = TestOPS.exe
-CXXFLAGS = $(CXXINCS) -g3
-CFLAGS   = $(SLEPCFLAGS) $(INCS) -g3
+CXXFLAGS = $(CXXINCS)
+CFLAGS   = $(SLEPCFLAGS) $(INCS)
 RM       = rm -f
 
 .PHONY: all all-before all-after clean clean-custom
@@ -50,62 +51,74 @@ $(BIN): $(OBJ)
 main.o: main.c
 	$(CC) -c main.c -o main.o $(CFLAGS)
 
-testNew/get_mat_phg.o: testNew/get_mat_phg.c
-	$(CC) -c testNew/get_mat_phg.c -o testNew/get_mat_phg.o $(PHGFLAGS) $(PHGINC)
+get_mat_phg.o: get_mat_phg.c
+	$(CC) -c get_mat_phg.c -o get_mat_phg.o $(PHGFLAGS) $(PHGINC)
 
-testNew/mat_convert_phg2petsc.o: testNew/mat_convert_phg2petsc.c
-	$(CC) -c testNew/mat_convert_phg2petsc.c -o testNew/mat_convert_phg2petsc.o $(PHGFLAGS) $(PETSCFLAGS) $(PHGINC) $(PETSCINC)
+mat_convert.o: mat_convert.c
+	$(CC) -c mat_convert.c -o mat_convert.o $(PHGFLAGS) $(PETSCFLAGS) $(PHGINC) $(PETSCINC)
 
-app_lapack.o: app_lapack.c
-	$(CC) -c app_lapack.c -o app_lapack.o $(CFLAGS)
+memwatch.o: memwatch.c
+	$(CC) -c memwatch.c -o memwatch.o $(CFLAGS)
 
-ops.o: ops.c
-	$(CC) -c ops.c -o ops.o $(CFLAGS)
+test_app_ccs.o: test_app_ccs.c
+	$(CC) -c test_app_ccs.c -o test_app_ccs.o $(CFLAGS)
 
-ops_eig_sol_gcg.o: ops_eig_sol_gcg.c
-	$(CC) -c ops_eig_sol_gcg.c -o ops_eig_sol_gcg.o $(CFLAGS)
+test_app_lapack.o: test_app_lapack.c
+	$(CC) -c test_app_lapack.c -o test_app_lapack.o $(CFLAGS)
 
-ops_lin_sol.o: ops_lin_sol.c
-	$(CC) -c ops_lin_sol.c -o ops_lin_sol.o $(CFLAGS)
+test_app_slepc.o: test_app_slepc.c
+	$(CC) -c test_app_slepc.c -o test_app_slepc.o $(CFLAGS)
 
-ops_multi_grid.o: ops_multi_grid.c
-	$(CC) -c ops_multi_grid.c -o ops_multi_grid.o $(CFLAGS)
+test_eig_sol_gcg.o: test_eig_sol_gcg.c
+	$(CC) -c test_eig_sol_gcg.c -o test_eig_sol_gcg.o $(CFLAGS)
 
-ops_multi_vec.o: ops_multi_vec.c
-	$(CC) -c ops_multi_vec.c -o ops_multi_vec.o $(CFLAGS)
+test_lin_sol.o: test_lin_sol.c
+	$(CC) -c test_lin_sol.c -o test_lin_sol.o $(CFLAGS)
 
-ops_orth.o: ops_orth.c
-	$(CC) -c ops_orth.c -o ops_orth.o $(CFLAGS)
+test_multi_grid.o: test_multi_grid.c
+	$(CC) -c test_multi_grid.c -o test_multi_grid.o $(CFLAGS)
 
-testNew/test_eig_sol.o: testNew/test_eig_sol.c
-	$(CC) -c testNew/test_eig_sol.c -o testNew/test_eig_sol.o $(CFLAGS)
+test_multi_vec.o: test_multi_vec.c
+	$(CC) -c test_multi_vec.c -o test_multi_vec.o $(CFLAGS)
 
-testNew/test_lin_sol.o: testNew/test_lin_sol.c
-	$(CC) -c testNew/test_lin_sol.c -o testNew/test_lin_sol.o $(CFLAGS)
+test_orth.o: test_orth.c
+	$(CC) -c test_orth.c -o test_orth.o $(CFLAGS)
 
-testNew/test_multi_grid.o: testNew/test_multi_grid.c
-	$(CC) -c testNew/test_multi_grid.c -o testNew/test_multi_grid.o $(CFLAGS)
+test_vec.o: test_vec.c
+	$(CC) -c test_vec.c -o test_vec.o $(CFLAGS)
 
-testNew/test_multi_vec.o: testNew/test_multi_vec.c
-	$(CC) -c testNew/test_multi_vec.c -o testNew/test_multi_vec.o $(CFLAGS)
+../src/ops.o: ../src/ops.c
+	$(CC) -c ../src/ops.c -o ../src/ops.o $(CFLAGS)
 
-testNew/test_orth.o: testNew/test_orth.c
-	$(CC) -c testNew/test_orth.c -o testNew/test_orth.o $(CFLAGS)
+../src/ops_eig_sol_gcg.o: ../src/ops_eig_sol_gcg.c
+	$(CC) -c ../src/ops_eig_sol_gcg.c -o ../src/ops_eig_sol_gcg.o $(CFLAGS)
 
-testNew/test_vec.o: testNew/test_vec.c
-	$(CC) -c testNew/test_vec.c -o testNew/test_vec.o $(CFLAGS)
+../src/ops_lin_sol.o: ../src/ops_lin_sol.c
+	$(CC) -c ../src/ops_lin_sol.c -o ../src/ops_lin_sol.o $(CFLAGS)
 
-app_pas.o: app_pas.c
-	$(CC) -c app_pas.c -o app_pas.o $(CFLAGS)
+../src/ops_multi_grid.o: ../src/ops_multi_grid.c
+	$(CC) -c ../src/ops_multi_grid.c -o ../src/ops_multi_grid.o $(CFLAGS)
 
-ops_eig_sol_pas.o: ops_eig_sol_pas.c
-	$(CC) -c ops_eig_sol_pas.c -o ops_eig_sol_pas.o $(CFLAGS)
+../src/ops_multi_vec.o: ../src/ops_multi_vec.c
+	$(CC) -c ../src/ops_multi_vec.c -o ../src/ops_multi_vec.o $(CFLAGS)
 
-app_slepc.o: app_slepc.c
-	$(CC) -c app_slepc.c -o app_slepc.o $(CFLAGS)
+../src/ops_orth.o: ../src/ops_orth.c
+	$(CC) -c ../src/ops_orth.c -o ../src/ops_orth.o $(CFLAGS)
 
-testNew/test_app_lapack.o: testNew/test_app_lapack.c
-	$(CC) -c testNew/test_app_lapack.c -o testNew/test_app_lapack.o $(CFLAGS)
+../app/app_ccs.o: ../app/app_ccs.c
+	$(CC) -c ../app/app_ccs.c -o ../app/app_ccs.o $(CFLAGS)
 
-testNew/test_app_slepc.o: testNew/test_app_slepc.c
-	$(CC) -c testNew/test_app_slepc.c -o testNew/test_app_slepc.o $(CFLAGS)
+../app/app_lapack.o: ../app/app_lapack.c
+	$(CC) -c ../app/app_lapack.c -o ../app/app_lapack.o $(CFLAGS)
+
+../app/app_matlab.o: ../app/app_matlab.c
+	$(CC) -c ../app/app_matlab.c -o ../app/app_matlab.o $(CFLAGS)
+
+../app/app_pas.o: ../app/app_pas.c
+	$(CC) -c ../app/app_pas.c -o ../app/app_pas.o $(CFLAGS)
+
+../app/app_slepc.o: ../app/app_slepc.c
+	$(CC) -c ../app/app_slepc.c -o ../app/app_slepc.o $(CFLAGS)
+
+../src/ops_eig_sol_pas.o: ../src/ops_eig_sol_pas.c
+	$(CC) -c ../src/ops_eig_sol_pas.c -o ../src/ops_eig_sol_pas.o $(CFLAGS)
