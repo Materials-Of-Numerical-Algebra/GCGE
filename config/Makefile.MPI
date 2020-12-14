@@ -1,0 +1,102 @@
+# Project: TestOPS
+# Makefile created by Dev-C++ 5.11
+
+SLEPCFLAGS = -Wall -Wwrite-strings -Wno-strict-aliasing -Wno-unknown-pragmas -fstack-protector -fvisibility=hidden -g3  -Wall -Wwrite-strings -Wno-strict-aliasing -Wno-unknown-pragmas -fstack-protector -fvisibility=hidden -g3  
+SLEPCINC   = -I${SLEPC_DIR}/include -I${SLEPC_DIR}/${PETSC_ARCH}/include -I${PETSC_DIR}/include -I${PETSC_DIR}/${PETSC_ARCH}/include
+LIBSLEPC   = -Wl,-rpath,${SLEPC_DIR}/${PETSC_ARCH}/lib -L${SLEPC_DIR}/${PETSC_ARCH}/lib -L${PETSC_DIR}/${PETSC_ARCH}/lib -L/usr/local/lib -L/usr/lib/gcc/x86_64-linux-gnu/7 -L/usr/lib/x86_64-linux-gnu -L/lib/x86_64-linux-gnu -Wl,-rpath,/usr/local/lib -lslepc -lpetsc -llapack -lblas -lpthread -lm -lstdc++ -ldl -lmpifort -lmpi -lgfortran -lm -lgfortran -lm -lgcc_s -lquadmath -lstdc++ -ldl
+
+PHGFLAGS   = -Wall -Wmissing-field-initializers -fopenmp -D__PHG__ 
+PHGINC     = -I${PHG_DIR}/include
+LIBPHG     = -L${PHG_DIR}/lib  -fopenmp -Wl,-rpath,${PHG_DIR}/lib -lphg  -lumfpack -lamd  -llapack -lblas  -lm  -L/usr/local/lib -L/usr/lib/gcc/x86_64-linux-gnu/7 -L/usr/lib/gcc/x86_64-linux-gnu/7/../../../x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/7/../../../../lib -L/lib/x86_64-linux-gnu -L/lib/../lib -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/7/../../.. -lgfortran -lm -lmpifort -lmpi -lquadmath  -lgfortran -lm -lmpifort -lmpi -lquadmath -Wl,-rpath,/usr/local/lib
+
+
+CPP      = mpic++ -D__DEBUG__   -DMEMWATCH -DMW_STDIO
+CC       = mpicc  -D__DEBUG__   -DMEMWATCH -DMW_STDIO
+WINDRES  = windres.exe
+
+OBJ      = main.o memwatch.o app_lapack.o ops.o ops_eig_sol_gcg.o ops_lin_sol.o ops_multi_grid.o ops_multi_vec.o ops_orth.o testNew/test_eig_sol.o testNew/test_lin_sol.o testNew/test_multi_grid.o testNew/test_multi_vec.o testNew/test_orth.o testNew/test_vec.o app_pas.o ops_eig_sol_pas.o app_slepc.o testNew/test_app_lapack.o testNew/test_app_slepc.o testNew/get_mat_phg.o testNew/mat_convert_phg2petsc.o
+LINKOBJ  = main.o memwatch.o app_lapack.o ops.o ops_eig_sol_gcg.o ops_lin_sol.o ops_multi_grid.o ops_multi_vec.o ops_orth.o testNew/test_eig_sol.o testNew/test_lin_sol.o testNew/test_multi_grid.o testNew/test_multi_vec.o testNew/test_orth.o testNew/test_vec.o app_pas.o ops_eig_sol_pas.o app_slepc.o testNew/test_app_lapack.o testNew/test_app_slepc.o testNew/get_mat_phg.o testNew/mat_convert_phg2petsc.o
+
+LIBS     = $(LIBSLEPC) $(LIBPHG)
+INCS     = $(SLEPCINC)
+CXXINCS  = 
+BIN      = TestOPS.exe
+CXXFLAGS = $(CXXINCS) -g3
+CFLAGS   = $(SLEPCFLAGS) $(INCS) -g3
+RM       = rm -f
+
+.PHONY: all all-before all-after clean clean-custom
+
+all: all-before $(BIN) all-after
+
+clean: clean-custom
+	${RM} $(OBJ) $(BIN)
+
+$(BIN): $(OBJ)
+	$(CC) $(LINKOBJ) -o $(BIN) $(LIBS)
+
+main.o: main.c
+	$(CC) -c main.c -o main.o $(CFLAGS)
+
+memwatch.o: memwatch.c
+	$(CC) -c memwatch.c -o memwatch.o $(CFLAGS)
+
+testNew/get_mat_phg.o: testNew/get_mat_phg.c
+	$(CC) -c testNew/get_mat_phg.c -o testNew/get_mat_phg.o $(PHGFLAGS) $(PHGINC)
+
+testNew/mat_convert_phg2petsc.o: testNew/mat_convert_phg2petsc.c
+	$(CC) -c testNew/mat_convert_phg2petsc.c -o testNew/mat_convert_phg2petsc.o $(PHGFLAGS) $(SLEPCFLAGS) $(PHGINC) $(SLEPCINC)
+
+app_lapack.o: app_lapack.c
+	$(CC) -c app_lapack.c -o app_lapack.o $(CFLAGS)
+
+ops.o: ops.c
+	$(CC) -c ops.c -o ops.o $(CFLAGS)
+
+ops_eig_sol_gcg.o: ops_eig_sol_gcg.c
+	$(CC) -c ops_eig_sol_gcg.c -o ops_eig_sol_gcg.o $(CFLAGS)
+
+ops_lin_sol.o: ops_lin_sol.c
+	$(CC) -c ops_lin_sol.c -o ops_lin_sol.o $(CFLAGS)
+
+ops_multi_grid.o: ops_multi_grid.c
+	$(CC) -c ops_multi_grid.c -o ops_multi_grid.o $(CFLAGS)
+
+ops_multi_vec.o: ops_multi_vec.c
+	$(CC) -c ops_multi_vec.c -o ops_multi_vec.o $(CFLAGS)
+
+ops_orth.o: ops_orth.c
+	$(CC) -c ops_orth.c -o ops_orth.o $(CFLAGS)
+
+testNew/test_eig_sol.o: testNew/test_eig_sol.c
+	$(CC) -c testNew/test_eig_sol.c -o testNew/test_eig_sol.o $(CFLAGS)
+
+testNew/test_lin_sol.o: testNew/test_lin_sol.c
+	$(CC) -c testNew/test_lin_sol.c -o testNew/test_lin_sol.o $(CFLAGS)
+
+testNew/test_multi_grid.o: testNew/test_multi_grid.c
+	$(CC) -c testNew/test_multi_grid.c -o testNew/test_multi_grid.o $(CFLAGS)
+
+testNew/test_multi_vec.o: testNew/test_multi_vec.c
+	$(CC) -c testNew/test_multi_vec.c -o testNew/test_multi_vec.o $(CFLAGS)
+
+testNew/test_orth.o: testNew/test_orth.c
+	$(CC) -c testNew/test_orth.c -o testNew/test_orth.o $(CFLAGS)
+
+testNew/test_vec.o: testNew/test_vec.c
+	$(CC) -c testNew/test_vec.c -o testNew/test_vec.o $(CFLAGS)
+
+app_pas.o: app_pas.c
+	$(CC) -c app_pas.c -o app_pas.o $(CFLAGS)
+
+ops_eig_sol_pas.o: ops_eig_sol_pas.c
+	$(CC) -c ops_eig_sol_pas.c -o ops_eig_sol_pas.o $(CFLAGS)
+
+app_slepc.o: app_slepc.c
+	$(CC) -c app_slepc.c -o app_slepc.o $(CFLAGS)
+
+testNew/test_app_lapack.o: testNew/test_app_lapack.c
+	$(CC) -c testNew/test_app_lapack.c -o testNew/test_app_lapack.o $(CFLAGS)
+
+testNew/test_app_slepc.o: testNew/test_app_slepc.c
+	$(CC) -c testNew/test_app_slepc.c -o testNew/test_app_slepc.o $(CFLAGS)

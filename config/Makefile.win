@@ -1,0 +1,82 @@
+# Project: TestOPS
+# Makefile created by Dev-C++ 5.11
+
+CPP      = g++.exe -D__DEBUG__
+CC       = gcc.exe -D__DEBUG__
+WINDRES  = windres.exe
+OBJ      = main.o app_lapack.o ops.o ops_eig_sol_gcg.o ops_lin_sol.o ops_multi_grid.o ops_multi_vec.o ops_orth.o testNew/test_eig_sol.o testNew/test_lin_sol.o testNew/test_multi_grid.o testNew/test_multi_vec.o testNew/test_orth.o testNew/test_vec.o app_pas.o ops_eig_sol_pas.o app_slepc.o testNew/test_app_lapack.o testNew/test_app_slepc.o
+LINKOBJ  = main.o app_lapack.o ops.o ops_eig_sol_gcg.o ops_lin_sol.o ops_multi_grid.o ops_multi_vec.o ops_orth.o testNew/test_eig_sol.o testNew/test_lin_sol.o testNew/test_multi_grid.o testNew/test_multi_vec.o testNew/test_orth.o testNew/test_vec.o app_pas.o ops_eig_sol_pas.o app_slepc.o testNew/test_app_lapack.o testNew/test_app_slepc.o
+LIBS     = -L"C:/Program Files (x86)/Dev-Cpp/MinGW64/lib" -L"C:/Program Files (x86)/Dev-Cpp/MinGW64/x86_64-w64-mingw32/lib" -static-libgcc cbia.lib.blas.dyn.rel.x64.12.dll cbia.lib.lapack.dyn.rel.x64.12.dll -pg -g3
+INCS     = -I"C:/Program Files (x86)/Dev-Cpp/MinGW64/include" -I"C:/Program Files (x86)/Dev-Cpp/MinGW64/x86_64-w64-mingw32/include" -I"C:/Program Files (x86)/Dev-Cpp/MinGW64/lib/gcc/x86_64-w64-mingw32/4.9.2/include"
+CXXINCS  = -I"C:/Program Files (x86)/Dev-Cpp/MinGW64/include" -I"C:/Program Files (x86)/Dev-Cpp/MinGW64/x86_64-w64-mingw32/include" -I"C:/Program Files (x86)/Dev-Cpp/MinGW64/lib/gcc/x86_64-w64-mingw32/4.9.2/include" -I"C:/Program Files (x86)/Dev-Cpp/MinGW64/lib/gcc/x86_64-w64-mingw32/4.9.2/include/c++"
+BIN      = TestOPS.exe
+CXXFLAGS = $(CXXINCS) -pg -g3
+CFLAGS   = $(INCS) -pg -g3
+RM       = rm.exe -f
+
+.PHONY: all all-before all-after clean clean-custom
+
+all: all-before $(BIN) all-after
+
+clean: clean-custom
+	${RM} $(OBJ) $(BIN)
+
+$(BIN): $(OBJ)
+	$(CC) $(LINKOBJ) -o $(BIN) $(LIBS)
+
+main.o: main.c
+	$(CC) -c main.c -o main.o $(CFLAGS)
+
+app_lapack.o: app_lapack.c
+	$(CC) -c app_lapack.c -o app_lapack.o $(CFLAGS)
+
+ops.o: ops.c
+	$(CC) -c ops.c -o ops.o $(CFLAGS)
+
+ops_eig_sol_gcg.o: ops_eig_sol_gcg.c
+	$(CC) -c ops_eig_sol_gcg.c -o ops_eig_sol_gcg.o $(CFLAGS)
+
+ops_lin_sol.o: ops_lin_sol.c
+	$(CC) -c ops_lin_sol.c -o ops_lin_sol.o $(CFLAGS)
+
+ops_multi_grid.o: ops_multi_grid.c
+	$(CC) -c ops_multi_grid.c -o ops_multi_grid.o $(CFLAGS)
+
+ops_multi_vec.o: ops_multi_vec.c
+	$(CC) -c ops_multi_vec.c -o ops_multi_vec.o $(CFLAGS)
+
+ops_orth.o: ops_orth.c
+	$(CC) -c ops_orth.c -o ops_orth.o $(CFLAGS)
+
+testNew/test_eig_sol.o: testNew/test_eig_sol.c
+	$(CC) -c testNew/test_eig_sol.c -o testNew/test_eig_sol.o $(CFLAGS)
+
+testNew/test_lin_sol.o: testNew/test_lin_sol.c
+	$(CC) -c testNew/test_lin_sol.c -o testNew/test_lin_sol.o $(CFLAGS)
+
+testNew/test_multi_grid.o: testNew/test_multi_grid.c
+	$(CC) -c testNew/test_multi_grid.c -o testNew/test_multi_grid.o $(CFLAGS)
+
+testNew/test_multi_vec.o: testNew/test_multi_vec.c
+	$(CC) -c testNew/test_multi_vec.c -o testNew/test_multi_vec.o $(CFLAGS)
+
+testNew/test_orth.o: testNew/test_orth.c
+	$(CC) -c testNew/test_orth.c -o testNew/test_orth.o $(CFLAGS)
+
+testNew/test_vec.o: testNew/test_vec.c
+	$(CC) -c testNew/test_vec.c -o testNew/test_vec.o $(CFLAGS)
+
+app_pas.o: app_pas.c
+	$(CC) -c app_pas.c -o app_pas.o $(CFLAGS)
+
+ops_eig_sol_pas.o: ops_eig_sol_pas.c
+	$(CC) -c ops_eig_sol_pas.c -o ops_eig_sol_pas.o $(CFLAGS)
+
+app_slepc.o: app_slepc.c
+	$(CC) -c app_slepc.c -o app_slepc.o $(CFLAGS)
+
+testNew/test_app_lapack.o: testNew/test_app_lapack.c
+	$(CC) -c testNew/test_app_lapack.c -o testNew/test_app_lapack.o $(CFLAGS)
+
+testNew/test_app_slepc.o: testNew/test_app_slepc.c
+	$(CC) -c testNew/test_app_slepc.c -o testNew/test_app_slepc.o $(CFLAGS)
