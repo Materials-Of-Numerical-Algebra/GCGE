@@ -2,14 +2,14 @@
  *    @file  app_slepc.c
  *   @brief  app of slecp 
  *
- *  ²»Ö§³Öµ¥ÏòÁ¿²Ù×÷ 
+ *  ä¸æ”¯æŒå•å‘é‡æ“ä½œ 
  *
  *  @author  Yu Li, liyu@tjufe.edu.cn
  *
  *       Created:  2020/9/13
  *      Revision:  none
  */
-#if USE_SLEPC
+
 
 #include	<stdio.h>
 #include	<stdlib.h>
@@ -21,12 +21,12 @@
 
 #define DEBUG 0
 
+#if USE_SLEPC
 
-
-/* ½ø³Ì·Ö×é, Ö÷ÒªÓÃÓÚ AMG, Ä¬ÈÏ×î´ó²ãÊıÊÇ16 */ 
+/* è¿›ç¨‹åˆ†ç»„, ä¸»è¦ç”¨äº AMG, é»˜è®¤æœ€å¤§å±‚æ•°æ˜¯16 */ 
 int       MG_COMM_COLOR[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-/* ÄÜ·ñÕâÑù¸³³õÖµ ÓÈÆäÊ± MPI_COMM_WORLD 
- * ÁíÍâ, ÕâĞ©´´½¨³öÀ´µÄÍ¨Ñ¶Óò¿ÉÒÔ MPI_Comm_free Âğ? ºÎÊ± */ 
+/* èƒ½å¦è¿™æ ·èµ‹åˆå€¼ å°¤å…¶æ—¶ MPI_COMM_WORLD 
+ * å¦å¤–, è¿™äº›åˆ›å»ºå‡ºæ¥çš„é€šè®¯åŸŸå¯ä»¥ MPI_Comm_free å—? ä½•æ—¶ */ 
 MPI_Comm  MG_COMM[16][2] = {
 	{MPI_COMM_NULL,MPI_COMM_NULL},{MPI_COMM_NULL,MPI_COMM_NULL},
 	{MPI_COMM_NULL,MPI_COMM_NULL},{MPI_COMM_NULL,MPI_COMM_NULL},
@@ -342,7 +342,7 @@ static void SLEPC_MatTransDotMultiVec (void *mat, void **x,
 static void SLEPC_MultiGridCreate (void ***A_array, void ***B_array, void ***P_array,
 		int *num_levels, void *A, void *B, struct OPS_ *ops)
 {
-	/* P ÊÇĞĞ¶àÁĞÉÙ, Px ÊÇ´Ó´Öµ½Ï¸ */
+	/* P æ˜¯è¡Œå¤šåˆ—å°‘, Px æ˜¯ä»ç²—åˆ°ç»† */
 	PetscInt m, n, level;
 	Mat   *petsc_A_array = NULL, *petsc_B_array = NULL, *petsc_P_array = NULL;
 	PC    pc;
@@ -487,7 +487,7 @@ static void SLEPC_MultiVecQtAP (char ntsA, char nsdQAP,
 		 * where ly (resp. lx) is the number of leading columns of Q (resp. P). */		
 		BVDot((BV)mvP, (BV)mvQ, dense_mat);		
 		MatDenseGetArrayRead(dense_mat, &source);        
-		/* µ± qAp Á¬Ğø´æ´¢ */
+		/* å½“ qAp è¿ç»­å­˜å‚¨ */
 #if DEBUG
 		ops->Printf("(%d, %d), (%d, %d)\n", start[0], end[0], start[1], end[1]);
 		for(row = 0; row < end[0]; ++row) {
@@ -535,7 +535,7 @@ void SLEPC_MultiVecInnerProd      (char nsdIP, void **x, void **y, int is_vec, i
 	      ops->Printf("%\n");
 	   }
 #endif
-	   /* µ± inner_prod Á¬Ğø´æ´¢ */
+	   /* å½“ inner_prod è¿ç»­å­˜å‚¨ */
 	   if (start[0]==0&&ldIP==nrows) {
 	      memcpy(inner_prod,source+nrows*start[1],nrows*ncols*sizeof(double)); 	
 	   }
@@ -610,7 +610,7 @@ void OPS_SLEPC_Set (struct OPS_ *ops)
  * @param petsc_P_array
  * @param num_levels
  * @param proc_rate
- * @param unit           ±£Ö¤Ã¿²ãnbigranksÊÇunitµÄ±¶Êı
+ * @param unit           ä¿è¯æ¯å±‚nbigranksæ˜¯unitçš„å€æ•°
  */
 void PETSC_RedistributeDataOfMultiGridMatrixOnEachProcess(
      Mat  *petsc_A_array, Mat   *petsc_B_array, Mat *petsc_P_array, 
@@ -625,7 +625,7 @@ void PETSC_RedistributeDataOfMultiGridMatrixOnEachProcess(
 	PetscInt      global_nrows, global_ncols; 
 	PetscInt      local_nrows , local_ncols ;
 	PetscInt      new_local_ncols;
-	/* ±£Ö¤Ã¿²ãnbigranksÊÇunitµÄ±¶Êı */
+	/* ä¿è¯æ¯å±‚nbigranksæ˜¯unitçš„å€æ•° */
 	PetscInt      rstart, rend, ncols;
 	const PetscInt              *cols; 
 	const PetscScalar           *vals;
@@ -637,37 +637,37 @@ void PETSC_RedistributeDataOfMultiGridMatrixOnEachProcess(
 		PetscPrintf(PETSC_COMM_WORLD, "Warning the refinest matrix cannot be redistributed\n");
 	}
 
-	/* ²»¸Ä±ä×îÏ¸²ãµÄ½ø³Ì·Ö²¼ */
+	/* ä¸æ”¹å˜æœ€ç»†å±‚çš„è¿›ç¨‹åˆ†å¸ƒ */
 	MPI_Comm_dup(PETSC_COMM_WORLD, &MG_COMM[0][0]);
 	MG_COMM[0][1]    = MPI_COMM_NULL;
 	MG_INTERCOMM[0]  = MPI_COMM_NULL;
 	MG_COMM_COLOR[0] = 0;
 	for (level = 1; level < num_levels; ++level) {
 		MatGetSize(petsc_P_array[level-1], &global_nrows, &global_ncols);
-		/* ÔÚÉè¶¨new_P_HµÄ¾Ö²¿ĞĞÊ±ÒÑ¾­²»ÄÜÓÃÒÔÇ°PµÄ¾Ö²¿ĞĞ£¬ÒòÎªµ±Ç°²ãµÄA¿ÉÄÜÒÑ¾­¸Ä±ä */
+		/* åœ¨è®¾å®šnew_P_Hçš„å±€éƒ¨è¡Œæ—¶å·²ç»ä¸èƒ½ç”¨ä»¥å‰Pçš„å±€éƒ¨è¡Œï¼Œå› ä¸ºå½“å‰å±‚çš„Aå¯èƒ½å·²ç»æ”¹å˜ */
 		MatGetLocalSize(petsc_A_array[level-1], &local_nrows, &local_ncols);
-		/* Ó¦¸ÃÍ¨¹ıncols_P£¬¼´×î´Ö²ã¾ØÕó´óĞ¡ºÍ½ø³Ì×ÜÊısizeÈ·¶¨nbigranks */
+		/* åº”è¯¥é€šè¿‡ncols_Pï¼Œå³æœ€ç²—å±‚çŸ©é˜µå¤§å°å’Œè¿›ç¨‹æ€»æ•°sizeç¡®å®šnbigranks */
 		nbigranks = ((PetscInt)((((PetscReal)size)*proc_rate[level])/((PetscReal)unit))) * (unit);
 		if (nbigranks < unit) nbigranks = unit<size?unit:size;
-		/* Èôproc_rateÉèÎª(0,1)Ö®Íâ£¬Ôò²»½øĞĞÊı¾İÖØ·ÖÅä/ */
+		/* è‹¥proc_rateè®¾ä¸º(0,1)ä¹‹å¤–ï¼Œåˆ™ä¸è¿›è¡Œæ•°æ®é‡åˆ†é…/ */
 		if (proc_rate[level]>1.0 || proc_rate[level]<=0.0 || nbigranks >= size || nbigranks <= 0) 		{
 			PetscPrintf(PETSC_COMM_WORLD, "Retain data distribution of %D level\n", level);
-			/* ´´½¨·Ö²ã¾ØÕóµÄÍ¨ĞÅÓò */
+			/* åˆ›å»ºåˆ†å±‚çŸ©é˜µçš„é€šä¿¡åŸŸ */
 			MG_COMM_COLOR[level] = 0;
-			/* TODO: ÊÇ·ñ¿ÉÒÔÖ±½Ó¸³Öµ
+			/* TODO: æ˜¯å¦å¯ä»¥ç›´æ¥èµ‹å€¼
 			 * MG_COMM[level][0] = PETSC_COMM_WORLD */ 
 			MPI_Comm_dup(PETSC_COMM_WORLD, &MG_COMM[level][0]);
 			MG_COMM[level][1]   = MPI_COMM_NULL;
 			MG_INTERCOMM[level] = MPI_COMM_NULL;
-			continue; /* Ö±½Óµ½ÏÂÒ»´ÎÑ­»· */
+			continue; /* ç›´æ¥åˆ°ä¸‹ä¸€æ¬¡å¾ªç¯ */
 		} else {
 			PetscPrintf(PETSC_COMM_WORLD, "Redistribute data of %D level\n", level);
 			PetscPrintf(PETSC_COMM_WORLD, "nbigranks[%D] = %D\n", level, nbigranks);
 		}
-		/* ÉÏÃæµÄÅĞ¶ÏÒÑ¾­±£Ö¤ 0 < nbigranks < size */
-		/* ´´½¨·Ö²ã¾ØÕóµÄÍ¨ĞÅÓò */
+		/* ä¸Šé¢çš„åˆ¤æ–­å·²ç»ä¿è¯ 0 < nbigranks < size */
+		/* åˆ›å»ºåˆ†å±‚çŸ©é˜µçš„é€šä¿¡åŸŸ */
 		int comm_color, local_leader, remote_leader;
-		/* ¶Ô0µ½nbigranks-1½ø³ÌÆ½¾ù·ÖÅäglobal_ncols */
+		/* å¯¹0åˆ°nbigranks-1è¿›ç¨‹å¹³å‡åˆ†é…global_ncols */
 		new_local_ncols = 0;
 		if (rank < nbigranks) {
 			new_local_ncols = global_ncols/nbigranks;
@@ -679,13 +679,13 @@ void PETSC_RedistributeDataOfMultiGridMatrixOnEachProcess(
 			remote_leader = nbigranks;
 		} else {
 			comm_color    = 1;
-			local_leader  = 0; /* ËüµÄÈ«¾Ö½ø³ÌºÅÊÇnbigranks */
+			local_leader  = 0; /* å®ƒçš„å…¨å±€è¿›ç¨‹å·æ˜¯nbigranks */
 			remote_leader = 0;
 		}
-      	/* ÔÚ²»Í¬½ø³ÌÖĞMG_COMM_COLOR[level]ÊÇ²»Ò»ÑùµÄÖµ£¬Ëü±íÕ÷¸Ã½ø³ÌÊôÓÚÄÄ¸öÍ¨Ñ¶Óò */
+      	/* åœ¨ä¸åŒè¿›ç¨‹ä¸­MG_COMM_COLOR[level]æ˜¯ä¸ä¸€æ ·çš„å€¼ï¼Œå®ƒè¡¨å¾è¯¥è¿›ç¨‹å±äºå“ªä¸ªé€šè®¯åŸŸ */
       	MG_COMM_COLOR[level] = comm_color;
-    	/* ·Ö³ÉÁ½¸ö×ÓÍ¨Ñ¶Óò, MG_COMM[level][0]´Ó0~(nbigranks-1)
-    	 * MG_COMM[level][0]´Ónbigranks~(size-1) */
+    	/* åˆ†æˆä¸¤ä¸ªå­é€šè®¯åŸŸ, MG_COMM[level][0]ä»0~(nbigranks-1)
+    	 * MG_COMM[level][0]ä»nbigranks~(size-1) */
     	MPI_Comm_split(PETSC_COMM_WORLD, comm_color, rank, &MG_COMM[level][comm_color]);
     	MPI_Intercomm_create(MG_COMM[level][comm_color], local_leader, 
 	    	PETSC_COMM_WORLD, remote_leader, level, &MG_INTERCOMM[level]);
@@ -696,8 +696,8 @@ void PETSC_RedistributeDataOfMultiGridMatrixOnEachProcess(
      	PetscPrintf(PETSC_COMM_SELF, "aux %D/%D, global %D/%D\n", 
 			aux_rank, aux_size, rank, size);  
 
-      	/* ´´½¨ĞÂµÄÑÓÍØ¾ØÕó, ²¢ÓÃÔ­Ê¼µÄPÎªÖ®¸³Öµ
-		 * ĞÂµÄPÓëÔ­À´µÄPÖ»ÓĞ ¾Ö²¿ÁĞÊınew_local_ncols ²»Í¬ */
+      	/* åˆ›å»ºæ–°çš„å»¶æ‹“çŸ©é˜µ, å¹¶ç”¨åŸå§‹çš„Pä¸ºä¹‹èµ‹å€¼
+		 * æ–°çš„Pä¸åŸæ¥çš„Påªæœ‰ å±€éƒ¨åˆ—æ•°new_local_ncols ä¸åŒ */
       	MatCreate(PETSC_COMM_WORLD, &new_P_H);
       	MatSetSizes(new_P_H, local_nrows, new_local_ncols, global_nrows, global_ncols);
       	//MatSetFromOptions(new_P_H);
@@ -722,7 +722,7 @@ void PETSC_RedistributeDataOfMultiGridMatrixOnEachProcess(
 	    	rank, level, local_nrows, local_ncols);
       	//MatView(petsc_P_array[level-1], viewer);
       	//MatView(new_P_H, viewer);
-      	/* Ïú»ÙÖ®Ç°µÄP_H A_H B_H */
+      	/* é”€æ¯ä¹‹å‰çš„P_H A_H B_H */
       	MatDestroy(&(petsc_P_array[level-1]));
       	MatDestroy(&(petsc_A_array[level]));
       	if (petsc_B_array!=NULL) {
@@ -738,18 +738,18 @@ void PETSC_RedistributeDataOfMultiGridMatrixOnEachProcess(
       	}
       	//MatView(petsc_A_array[num_levels-1], viewer);
       	//MatView(petsc_B_array[num_levels-1], viewer);
-      	/* ÕâÀïĞèÒªĞŞ¸Äpetsc_P_array[level], Ô­ÒòÊÇ
-       	 * petsc_A_array[level]ĞŞ¸Äºó£¬
-      	 * ËüÀûÓÃÔ­À´µÄpetsc_P_array[level]²åÖµÉÏÀ´µÄÏòÁ¿ÒÑ¾­Óëpetsc_A_array[level]²»Æ¥Åä
-      	 * ËùÒÔÔÚ²»ĞŞ¸Älevel+1²ãµÄ·Ö²¼½á¹¹µÄÇé¿öÏÂ£¬ĞèÒª¶Ôpetsc_P_array[level]½øĞĞĞŞ¸Ä */
-     	/* Èç¹ûµ±Ç°²ã²»ÊÇ×î´Ö²ã£¬²¢ÇÒ£¬ÏÂÒ»²ãÒ²²»½øĞĞÊı¾İÖØ·ÖÅä */
+      	/* è¿™é‡Œéœ€è¦ä¿®æ”¹petsc_P_array[level], åŸå› æ˜¯
+       	 * petsc_A_array[level]ä¿®æ”¹åï¼Œ
+      	 * å®ƒåˆ©ç”¨åŸæ¥çš„petsc_P_array[level]æ’å€¼ä¸Šæ¥çš„å‘é‡å·²ç»ä¸petsc_A_array[level]ä¸åŒ¹é…
+      	 * æ‰€ä»¥åœ¨ä¸ä¿®æ”¹level+1å±‚çš„åˆ†å¸ƒç»“æ„çš„æƒ…å†µä¸‹ï¼Œéœ€è¦å¯¹petsc_P_array[level]è¿›è¡Œä¿®æ”¹ */
+     	/* å¦‚æœå½“å‰å±‚ä¸æ˜¯æœ€ç²—å±‚ï¼Œå¹¶ä¸”ï¼Œä¸‹ä¸€å±‚ä¹Ÿä¸è¿›è¡Œæ•°æ®é‡åˆ†é… */
       	if (level+1<num_levels && (proc_rate[level+1]>1.0 || proc_rate[level+1]<=0.0) ) {
 	 		MatGetSize(petsc_P_array[level], &global_nrows, &global_ncols);
-	 		/*ĞèÒªµ±Ç°²ãAµÄÁĞ ×÷ÎªPµÄĞĞ */
+	 		/*éœ€è¦å½“å‰å±‚Açš„åˆ— ä½œä¸ºPçš„è¡Œ */
 	 		MatGetLocalSize(petsc_A_array[level],   &new_local_ncols, &local_ncols);
-	 		/*ĞèÒªÏÂÒ»²ãAµÄĞĞ ×÷ÎªPµÄÁĞ */
+	 		/*éœ€è¦ä¸‹ä¸€å±‚Açš„è¡Œ ä½œä¸ºPçš„åˆ— */
 	 		MatGetLocalSize(petsc_A_array[level+1], &local_nrows, &new_local_ncols);
-	 		/* ´´½¨ĞÂµÄÑÓÍØ¾ØÕó, ²¢ÓÃÔ­Ê¼µÄPÎªÖ®¸³Öµ */
+	 		/* åˆ›å»ºæ–°çš„å»¶æ‹“çŸ©é˜µ, å¹¶ç”¨åŸå§‹çš„Pä¸ºä¹‹èµ‹å€¼ */
 	 		MatCreate(PETSC_COMM_WORLD, &new_P_H);
 	 		MatSetSizes(new_P_H, local_ncols, local_nrows, global_nrows, global_ncols);
 	 		//MatSetFromOptions(new_P_H);
@@ -765,7 +765,7 @@ void PETSC_RedistributeDataOfMultiGridMatrixOnEachProcess(
 			}
 			MatAssemblyBegin(new_P_H,MAT_FINAL_ASSEMBLY);
 			MatAssemblyEnd(new_P_H,MAT_FINAL_ASSEMBLY);
-			/* Ïú»ÙÔ­Ê¼µÄ P_H */
+			/* é”€æ¯åŸå§‹çš„ P_H */
 			MatDestroy(&(petsc_P_array[level]));
 			petsc_P_array[level] = new_P_H;
       	}
