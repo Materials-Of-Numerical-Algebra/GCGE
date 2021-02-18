@@ -46,7 +46,7 @@ int DefaultGetOptionFromCommandLine(
 		int argc, char* argv[], struct OPS_ *ops)
 {
     int arg_idx = 0, set = 0;
-    int *int_value; double *dbl_value; const char **str_value;
+    int *int_value; double *dbl_value; char *str_value;
     while(arg_idx < argc) 
     {
        	if(0 == strcmp(argv[arg_idx], name)) {
@@ -67,8 +67,8 @@ int DefaultGetOptionFromCommandLine(
 					*dbl_value = atof(argv[++arg_idx]);
 					break;
 				case 's':
-					str_value  = (const char **)value;
-					*str_value = argv[++arg_idx];
+					str_value  = (char*)value;
+					strcpy(str_value, argv[++arg_idx]);
 					break;
 				default:
 					break;
@@ -196,17 +196,20 @@ void DefaultMultiVecInnerProd      (char nsdIP, void **x, void **y, int is_vec, 
 		assert(nrows == ncols);
 		nrows = 1;
 	}
-	CreateMPIDataTypeSubMat(&SUBMAT_TYPE,nrows,ncols,ldIP);
-	assert(SUBMAT_OP_USED == 0);
-	int commute = 1;
-	MPI_Op_create((MPI_User_function*)user_fn_submat_sum,
-			commute,&SUBMAT_OP);
-	SUBMAT_OP_USED = 1;
-	/* 求和归约, 1 个 SUBMAT_TYPE */
-	MPI_Allreduce(MPI_IN_PLACE,inner_prod,
-			1,SUBMAT_TYPE,SUBMAT_OP,MPI_COMM_WORLD);
-	MPI_Op_free(&SUBMAT_OP); SUBMAT_OP_USED = 0;
-	DestroyMPIDataTypeSubMat(&SUBMAT_TYPE);
+	if (nrows==ldIP) {
+	   MPI_Allreduce(MPI_IN_PLACE,inner_prod,
+		 nrows*ncols,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+	}
+	else {
+	   MPI_Datatype data_type; MPI_Op op;
+	   CreateMPIDataTypeSubMat(&data_type,nrows,ncols,ldIP);	
+	   CreateMPIOpSubMatSum(&op);/* 对第一个创建的submat */
+	   /* 求和归约, 1 个 SUBMAT_TYPE */
+	   MPI_Allreduce(MPI_IN_PLACE,inner_prod,
+		 1,data_type,op,MPI_COMM_WORLD);
+	   DestroyMPIOpSubMatSum(&op);
+	   DestroyMPIDataTypeSubMat(&data_type);
+	}
 
 #endif
 	return;
@@ -348,13 +351,16 @@ void DefaultMultiVecQtAP        (char ntsA, char nsdQAP,
 	if (is_vec == 0) {
 		if (ntsA == 'N' || ntsA == 'S') {
 			ops->MatDotMultiVec(matA,mvP,mv_ws,start,end,ops);
-		} else if (ntsA == 'T') {
+		} 
+		else if (ntsA == 'T') {
 			ops->MatTransDotMultiVec(matA,mvP,mv_ws,start,end,ops);
 		}
-	} else {
+	} 
+	else {
 		if (ntsA == 'N' || ntsA == 'S') {
 			ops->MatDotVec(matA,mvP,mv_ws,ops);
-		} else if (ntsA == 'T') {
+		} 
+		else if (ntsA == 'T') {
 			ops->MatTransDotMultiVec(matA,mvP,mv_ws,start,end,ops);
 		}
 	}

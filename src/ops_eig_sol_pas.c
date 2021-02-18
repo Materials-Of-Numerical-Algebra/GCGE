@@ -59,7 +59,7 @@ static void ComputeRayleighRitz(PASMAT *ss_matA, PASMAT *ss_matB,
 #endif
 	//PASSolver *pas = (PASSolver*)ops_pas->app_ops->eigen_solver_workspace;
 	int start[2], end[2], idx, nevGiven, nevConv;
-	void **mv_ws_gcg[4] = {NULL};
+	void **mv_ws_gcg[4] = {NULL,NULL,NULL,NULL};
 	int sizeV = sizeX + 2*pas_solver->block_size_rr;
 	if (level == level_aux) {
 		//ops_pas->app_ops->MultiVecCreateByMat(&(mv_ws_gcg[0]),sizeV,
@@ -73,8 +73,9 @@ static void ComputeRayleighRitz(PASMAT *ss_matA, PASMAT *ss_matB,
 		eig_sol = ops_pas->app_ops->EigenSolver;
 		ws      = ops_pas->app_ops->eigen_solver_workspace;
 		EigenSolverSetup_GCG(
-			pas_solver->nevMax,pas_solver->multiMax,pas_solver->gapMin,
-			pas_solver->block_size_rr,pas_solver->tol_rr,pas_solver->numIterMax_rr,
+			pas_solver->multiMax,pas_solver->gapMin,
+			pas_solver->nevMax,pas_solver->nevMax,pas_solver->block_size_rr,
+			pas_solver->tol_rr,pas_solver->numIterMax_rr,
 			0,mv_ws_gcg,dbl_ws,int_ws, 
 			ops_pas->app_ops);
 		/* GCG 算法内部参数 */
@@ -191,8 +192,9 @@ static void ComputeRayleighRitz(PASMAT *ss_matA, PASMAT *ss_matB,
 		}
 		
 		EigenSolverSetup_GCG(//sizeX,0,
-			pas_solver->nevMax,pas_solver->multiMax,pas_solver->gapMin,
-			pas_solver->block_size_rr,pas_solver->tol_rr,pas_solver->numIterMax_rr,			
+			pas_solver->multiMax,pas_solver->gapMin,
+			pas_solver->nevMax,pas_solver->nevMax,pas_solver->block_size_rr,
+			pas_solver->tol_rr,pas_solver->numIterMax_rr,			
 			0,mv_ws_gcg,dbl_ws+sizeX*sizeV+3*sizeX*sizeX,int_ws,
 			ops_pas);		
 		/* GCG 算法内部参数 */
@@ -801,7 +803,7 @@ void EigenSolverSetup_PAS(
 		.nevMax     = 1   , .multiMax = 2   , .gapMin   = 0.01,
 		.block_size = 1   , .tol[0]   = 1e-6, .tol[1]   = 1e-6, .numIterMax = 10, 
 		.block_size_rr = 1, .tol_rr[0]= 1e-6, .tol_rr[1]= 1e-6, .numIterMax_rr = 10, 
-		.mv_ws      = NULL, .dbl_ws   = NULL, .int_ws   = NULL,
+		.mv_ws      = {}  , .dbl_ws   = NULL, .int_ws   = NULL,
 		/* 算法内部参数 */	
 		.compN_user_defined_multi_linear_solver = 0,
 		.compN_bamg_max_iter[0]  = 1, /* bamg 最大迭代次数 */
@@ -981,7 +983,7 @@ void EigenSolverSetParameters_PAS(
 			pas_solver->compN_bamg_tol[level] = compN_bamg_tol[level];
 		}
 	}
-	pas_solver->compN_bamg_tol_type = compN_bamg_tol_type;
+	strcpy(pas_solver->compN_bamg_tol_type, compN_bamg_tol_type);
 
 	pas_solver->orthX_user_defined_multi_linear_solver = orthX_user_defined_multi_linear_solver;
 	/* 线性求解器 默认选用 AMG */
@@ -991,9 +993,11 @@ void EigenSolverSetParameters_PAS(
 		pas_solver->orthX_ls_rate     = orthX_ls_rate;
 	if (orthX_ls_tol>0)
 		pas_solver->orthX_ls_tol      = orthX_ls_tol;
-	pas_solver->orthX_ls_tol_type = orthX_ls_tol_type;
-
-	pas_solver->orthX_orth_method = orthX_orth_method;
+	if (orthX_ls_tol_type!=NULL)
+		strcpy(pas_solver->orthX_ls_tol_type, orthX_ls_tol_type);
+	
+	if (orthX_orth_method!=NULL)
+		strcpy(pas_solver->orthX_orth_method, orthX_orth_method);
 	if (orthX_orth_block_size>0)
 		pas_solver->orthX_orth_block_size = orthX_orth_block_size;
 	if (orthX_orth_max_reorth>=0)
@@ -1002,19 +1006,19 @@ void EigenSolverSetParameters_PAS(
 		pas_solver->orthX_orth_zero_tol	  = orthX_orth_zero_tol;
 	
 	pas_solver->compRR_gcg_check_conv_max_num    = compRR_gcg_check_conv_max_num;
-	pas_solver->compRR_gcg_initX_orth_method     = compRR_gcg_initX_orth_method;
+	strcpy(pas_solver->compRR_gcg_initX_orth_method, compRR_gcg_initX_orth_method);
 	pas_solver->compRR_gcg_initX_orth_block_size = compRR_gcg_initX_orth_block_size;
 	pas_solver->compRR_gcg_initX_orth_zero_tol   = compRR_gcg_initX_orth_zero_tol;
-	pas_solver->compRR_gcg_compP_orth_method     = compRR_gcg_compP_orth_method;
+	strcpy(pas_solver->compRR_gcg_compP_orth_method, compRR_gcg_compP_orth_method);
 	pas_solver->compRR_gcg_compP_orth_block_size = compRR_gcg_compP_orth_block_size;
 	pas_solver->compRR_gcg_compP_orth_zero_tol   = compRR_gcg_compP_orth_zero_tol;
-	pas_solver->compRR_gcg_compW_orth_method     = compRR_gcg_compW_orth_method;
+	strcpy(pas_solver->compRR_gcg_compW_orth_method, compRR_gcg_compW_orth_method);
 	pas_solver->compRR_gcg_compW_orth_block_size = compRR_gcg_compW_orth_block_size;
 	pas_solver->compRR_gcg_compW_orth_zero_tol   = compRR_gcg_compW_orth_zero_tol;
 	pas_solver->compRR_gcg_compW_cg_max_iter     = compRR_gcg_compW_cg_max_iter;
 	pas_solver->compRR_gcg_compW_cg_rate         = compRR_gcg_compW_cg_rate;
 	pas_solver->compRR_gcg_compW_cg_tol          = compRR_gcg_compW_cg_tol;
-	pas_solver->compRR_gcg_compW_cg_tol_type     = compRR_gcg_compW_cg_tol_type;
+	strcpy(pas_solver->compRR_gcg_compW_cg_tol_type, compRR_gcg_compW_cg_tol_type);
 	pas_solver->compRR_gcg_compRR_min_num        = compRR_gcg_compRR_min_num;
 	pas_solver->compRR_gcg_compRR_min_gap        = compRR_gcg_compRR_min_gap;
 	pas_solver->compRR_gcg_compRR_tol            = compRR_gcg_compRR_tol;	

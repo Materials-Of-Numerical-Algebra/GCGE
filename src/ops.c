@@ -20,6 +20,9 @@
 
 #define     DEBUG 0
 
+
+
+
 void OPS_Create  (OPS **ops)
 {
 	*ops = malloc(sizeof(OPS));
@@ -248,9 +251,13 @@ int SplitDoubleArray(double *destin, int length,
 
 
 #if USE_MPI
-
+/* 子矩阵通讯 */
+static int SUBMAT_TYPE_NROWS = 0; 
+static int SUBMAT_TYPE_NCOLS = 0; 
+static int SUBMAT_TYPE_LDA   = 0; 
+static int SUBMAT_OP_USED    = 0;
 /* 矩阵块求和操作 */
-void user_fn_submat_sum(double *in, double *inout, 
+static void user_fn_submat_sum(double *in, double *inout, 
 	int *len, MPI_Datatype* data_type)
 {
 	int i, j; double *a, *b;
@@ -264,29 +271,39 @@ void user_fn_submat_sum(double *in, double *inout,
 	}
 }
 /* 矩阵块创建 */
-int CreateMPIDataTypeSubMat(MPI_Datatype *SUBMAT_TYPE,
+int CreateMPIDataTypeSubMat(MPI_Datatype *data_type,
 	int nrows, int ncols, int ldA)
 {
 	/* int MPI_Type_vector(
 			int count, int blocklength, int stride,
     		MPI_Datatype oldtype, MPI_Datatype *newtype) */ 
-	MPI_Type_vector(ncols,nrows,ldA,MPI_DOUBLE,SUBMAT_TYPE);
-	MPI_Type_commit(SUBMAT_TYPE);
+	MPI_Type_vector(ncols,nrows,ldA,MPI_DOUBLE,data_type);
+	MPI_Type_commit(data_type);
 	if (SUBMAT_OP_USED == 0) {
 		SUBMAT_TYPE_NROWS = nrows; SUBMAT_TYPE_LDA = ldA;
-		SUBMAT_TYPE_NCOLS = ncols;
-	} 
-	else {
-#if DEBUG
-		printf("SUBMAT_OP is being used.");
-#endif
+		SUBMAT_TYPE_NCOLS = ncols;		
 	}
 	return 0;
 }
-/* 矩阵块销毁 */
-int DestroyMPIDataTypeSubMat(MPI_Datatype *SUBMAT_TYPE)
+int CreateMPIOpSubMatSum(MPI_Op *op)
 {
-	MPI_Type_free(SUBMAT_TYPE);
+	assert(SUBMAT_OP_USED == 0);
+	SUBMAT_OP_USED = 1;
+	/* int commute = 1; */
+	MPI_Op_create((MPI_User_function*)user_fn_submat_sum,1,op);
+	return 0;
+}
+int DestroyMPIOpSubMatSum(MPI_Op *op)
+{
+	assert(SUBMAT_OP_USED == 1);
+	SUBMAT_OP_USED = 0;
+	MPI_Op_free(op);
+	return 0;
+}
+/* 矩阵块销毁 */
+int DestroyMPIDataTypeSubMat(MPI_Datatype *data_type)
+{
+	MPI_Type_free(data_type);
 	if (SUBMAT_OP_USED == 0) {
 		SUBMAT_TYPE_NROWS = 0; SUBMAT_TYPE_NCOLS = 0;
 		SUBMAT_TYPE_LDA   = 0;

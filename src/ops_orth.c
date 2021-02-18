@@ -20,8 +20,8 @@
 #include    "ops_orth.h"
 
 #define  DEBUG 0
-#define  TIME_MGS 1
-#define  TIME_BGS 1
+#define  TIME_MGS 0
+#define  TIME_BGS 0
 
 typedef struct TimeMGS_ {
 	double axpby_time;
@@ -58,7 +58,7 @@ static void OrthSelf(void **x,int start_x,int *end_x, void *B, int max_reorth,
 				r_k,end[0]-start[0],mv_ws,ops);
 		*r_k = sqrt(*r_k);
 #if DEBUG
-		ops->Printf("r[%d] = %f\n",k,*r_k);
+		ops->Printf("r[%d] = %f, %f\n",k,*r_k, orth_zero_tol);
 #endif
 		if (*r_k < orth_zero_tol) {
 			ops->Printf("r_[%d] = %6.4e\n",k,*r_k);
@@ -119,7 +119,10 @@ static void OrthSelfEVP(void **x,int start_x,int *end_x, void *B, int max_reorth
 		double orth_zero_tol,double reorth_tol,void **mv_ws,double *dbl_ws,struct OPS_ *ops)
 {
 	if (*end_x<=start_x) return;
-	assert(*end_x-start_x>=4);
+#if DEBUG 
+	ops->Printf("start_x = %d, end_x = %d\n", start_x, *end_x);
+#endif
+	
 
 	int    k, start[2], end[2], idx, inc = 1, lin_dep; 
 	char   JOBZ = 'V', UPLO = 'L';
@@ -127,26 +130,40 @@ static void OrthSelfEVP(void **x,int start_x,int *end_x, void *B, int max_reorth
 	double *A, *W, *WORK;
 
 	for (idx = 0; idx < 1+max_reorth; ++idx) {
+		assert(*end_x-start_x>=1);
 		lin_dep = 0;
-		N = *end_x-start_x; LDA = N  ; LWORK = N*N-N;
+		N = *end_x-start_x; LDA = N  ; LWORK = 3*N*N-N;
 		A = dbl_ws        ; W = A+N*N; WORK  = W+N;
 		start[0] = start_x; end[0] = *end_x;
 		start[1] = start_x; end[1] = *end_x;
 		ops->MultiVecQtAP('S','S',x,B,x,0,start,end,
 				A,end[0]-start[0],mv_ws,ops);
 		dsyev(&JOBZ,&UPLO,&N,A,&LDA,W,WORK,&LWORK,&INFO);
+#if DEBUG
+		//ops->MultiVecView(x, start[0], end[0], ops);
+		int i;
+		for (i = 0; i < N*N; ++i) {
+		   if (i%LDA==0) printf("\n");
+		   ops->Printf("%e\t", A[i]);
+		}
+		ops->Printf("\n");
+		ops->Printf("INFO = %d, start = %d-%d, end = %d-%d\n", 
+		      INFO, start[0], start[1], end[0], end[1]);
+#endif
 		assert(INFO==0);
 		/* W is in ascending order */
-#if DEBUG
+#if DEBUG 
 		ops->Printf("\n%d:\n",idx);
 #endif
 		for (k = 0; k < N; ++k) {
+			//ops->Printf("OO %e\t",W[k]);
+			assert(W[k]>=0);
 			W[k] = sqrt(W[k]);
 			if (W[k] > orth_zero_tol) {
 				W[k] = 1.0/W[k];
 			}
 			else {
-				lin_dep = k;
+				++lin_dep;
 			}
 #if DEBUG
 			ops->Printf("%f\t",W[k]);
@@ -167,7 +184,7 @@ static void OrthSelfEVP(void **x,int start_x,int *end_x, void *B, int max_reorth
 		start[0] = 0        ; end[0] = N-lin_dep;
 		start[1] = start_x  ; end[1] = *end_x;
 		ops->MultiVecAxpby(1.0,mv_ws,0.0,x,start,end,ops);
-		if (lin_dep==0&&(dasum(&N,W,&inc)-N)<reorth_tol)	{
+		if ((lin_dep==0&&(dasum(&N,W,&inc)-N)<reorth_tol)) {
 			break;
 		}	
 	}
@@ -492,6 +509,9 @@ static void OrthBinary(void **x,int start_x, int *end_x, void *B, char orth_self
 	void **mv_ws, double *dbl_ws, struct OPS_ *ops)
 {
 	if (*end_x<=start_x) return;
+#if DEBUG
+	ops->Printf("%d,%d,%d\n",start_x,*end_x,block_size);
+#endif
 		
 	int ncols = *end_x-start_x, length, start[2], end[2], idx, inc, idx_abs_max;
 	double *beta = dbl_ws, *coef = beta+1;
@@ -503,7 +523,6 @@ static void OrthBinary(void **x,int start_x, int *end_x, void *B, char orth_self
         time_bgs.orth_self_time -= clock();
 #endif
 #endif
-		//OrthSelf(x,start_x,end_x,B,
 		if (orth_self_method=='E') {
 			OrthSelfEVP(x,start_x,end_x,B,
 					max_reorth,orth_zero_tol,reorth_tol,mv_ws,coef,ops);
@@ -527,6 +546,9 @@ static void OrthBinary(void **x,int start_x, int *end_x, void *B, char orth_self
 		OrthBinary(x,start[0],&end[0],B,orth_self_method,
 		      block_size,max_reorth,orth_zero_tol,reorth_tol,
 		      mv_ws,dbl_ws,ops);		
+		//ops->MultiVecView(x, 80, 81, ops);
+		//ops->Printf("start = %d-%d, end = %d-%d\n", 
+		//      start[0], start[1], end[0], end[1]);
 		/* 去掉 X1 中 X0 的部分 */
 		for (idx = 0; idx < 1+max_reorth; ++idx) {
 #if TIME_BGS
@@ -690,12 +712,13 @@ static void BinaryGramSchmidt(void **x, int start_x, int *end_x,
 		orth_self_method = 'M';		
 	}
 	else {		
-		if (block_size<4 || block_size>(*end_x-start_x)/4) {
+		if (block_size<=0 || block_size>(*end_x-start_x)/4) {
 			block_size = (*end_x-start_x)/4;
 		}
 		/* 使用 OrthSelfEVP */
 		orth_self_method = 'E';
 	}
+	//ops->Printf("start_x = %d, end_x = %d, block_size = %d\n", start_x, *end_x, block_size);
 
 	OrthBinary(x,start_x,end_x,B,orth_self_method,
 	      block_size,bgs_orth->max_reorth,orth_zero_tol,reorth_tol,

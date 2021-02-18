@@ -1,8 +1,8 @@
 /**
  *    @file  ops_multi_grid.c
- *   @brief  正交化操作 
+ *   @brief  多重网格操作 
  *
- *  正交化操作
+ *  插值 延拓
  *
  *  @author  Yu Li, liyu@tjufe.edu.cn
  *

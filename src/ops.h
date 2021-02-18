@@ -17,19 +17,13 @@
 #if USE_MPI
 #include <mpi.h>
 
-/* 子矩阵通讯 */
-MPI_Datatype SUBMAT_TYPE; 
-MPI_Op SUBMAT_OP; 
-static int SUBMAT_TYPE_NROWS = 0; 
-static int SUBMAT_TYPE_NCOLS = 0; 
-static int SUBMAT_TYPE_LDA   = 0; 
-static int SUBMAT_OP_USED    = 0;
+extern double *debug_ptr;
 /* 矩阵块求和操作 */
-void user_fn_submat_sum(double *in, double *inout, 
-	int *len, MPI_Datatype* data_type);
-int CreateMPIDataTypeSubMat(MPI_Datatype *SUBMAT_TYPE,
+int CreateMPIDataTypeSubMat(MPI_Datatype *submat_type,
 	int nrows, int ncols, int ldA);
-int DestroyMPIDataTypeSubMat(MPI_Datatype *SUBMAT_TYPE);
+int DestroyMPIDataTypeSubMat(MPI_Datatype *submat_type);
+int CreateMPIOpSubMatSum(MPI_Op *op);
+int DestroyMPIOpSubMatSum(MPI_Op *op); 
 #endif
 /* 数据分组 */
 int SplitDoubleArray(double *destin, int length, 

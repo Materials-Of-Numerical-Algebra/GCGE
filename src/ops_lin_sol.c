@@ -20,7 +20,7 @@
 #include    "ops_lin_sol.h"
 #define     DEBUG 0
 
-#define     TIME_BPCG 1
+#define     TIME_BPCG 0
 #define     TIME_BAMG 0
 
 typedef struct TimeBlockPCG_ {
@@ -121,12 +121,12 @@ void LinearSolverSetup_PCG(int max_iter, double rate, double tol,
 {
 	/* 只初始化一次，且全局可见 */
 	static PCGSolver pcg_static = {
-		.max_iter = 50  , .rate = 1e-2, .tol=1e-12, .tol_type = "abs", 
-		.vec_ws   = NULL, .pc   = NULL};
+		.max_iter = 50, .rate = 1e-2, .tol=1e-12, .tol_type = "abs", 
+		.vec_ws   = {}, .pc   = NULL};
 	pcg_static.max_iter  = max_iter;
 	pcg_static.rate      = rate    ;
 	pcg_static.tol       = tol     ;
-	pcg_static.tol_type  = tol_type;
+	strcpy(pcg_static.tol_type, tol_type);
 	pcg_static.vec_ws[0] = vec_ws[0];
 	pcg_static.vec_ws[1] = vec_ws[1];
 	pcg_static.vec_ws[2] = vec_ws[2];
@@ -195,6 +195,7 @@ void BlockPCG(void *mat, void **mv_b, void **mv_x,
 	   /* user defined norm_b */
 	   for (idx = 0; idx < num_unconv; ++idx) {
 	      norm_b[idx] = fabs(norm_b[idx]);
+	      //ops->Printf("%e\n",norm_b[idx]);
 	   }
 	}
 	else {
@@ -455,10 +456,12 @@ void BlockPCG(void *mat, void **mv_b, void **mv_x,
 
 		++niter;
 
+#if DEBUG
 		if (niter%5 == 0) {
 		   ops->Printf("BlockPCG: niter = %d, num_unconv = %d, residual[%d] = %6.4e\n",
 			 niter,num_unconv,unconv[0],last_res[unconv[0]]/norm_b[unconv[0]]);
 		}
+#endif
 	}
 	if (niter > 0) {
 		bpcg->niter = niter; bpcg->residual = last_res[unconv[0]];	
@@ -508,11 +511,11 @@ void MultiLinearSolverSetup_BlockPCG(int max_iter, double rate, double tol,
 	/* 只初始化一次，且全局可见 */
 	static BlockPCGSolver bpcg_static = {
 		.max_iter = 50, .rate = 1e-2, .tol=1e-12, .tol_type = "abs", 
-		.mv_ws = NULL, .pc = NULL};
+		.mv_ws    = {}, .pc = NULL};
 	bpcg_static.max_iter = max_iter;
 	bpcg_static.rate     = rate    ;
 	bpcg_static.tol      = tol     ;
-	bpcg_static.tol_type = tol_type;
+	strcpy(bpcg_static.tol_type, tol_type);
 	bpcg_static.mv_ws[0] = mv_ws[0];
 	bpcg_static.mv_ws[1] = mv_ws[1];
 	bpcg_static.mv_ws[2] = mv_ws[2];
@@ -821,11 +824,11 @@ void MultiLinearSolverSetup_BlockAMG(int *max_iter, double *rate, double *tol,
 	/* 只初始化一次，且全局可见 */
 	static BlockAMGSolver bamg_static = {
 		.max_iter    = NULL, .rate = NULL, .tol=NULL, .tol_type = "abs", 
-		.mv_array_ws = NULL, .dbl_ws = NULL, .int_ws=NULL, .pc = NULL};
+		.mv_array_ws = {}  , .dbl_ws = NULL, .int_ws=NULL, .pc = NULL};
 	bamg_static.max_iter   = max_iter  ;
 	bamg_static.rate       = rate      ;
 	bamg_static.tol        = tol       ;
-	bamg_static.tol_type   = tol_type  ;
+	strcpy(bamg_static.tol_type, tol_type);
 	bamg_static.A_array    = A_array   ;
 	bamg_static.P_array    = P_array   ;
 	bamg_static.num_levels = num_levels;
