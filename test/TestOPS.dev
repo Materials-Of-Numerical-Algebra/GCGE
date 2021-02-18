@@ -4,14 +4,14 @@ Name=TestOPS
 Type=1
 Ver=2
 ObjFiles=
-Includes=C:\Users\LiYu\Desktop\Workspace\MONA\1215\src;C:\Users\LiYu\Desktop\Workspace\MONA\1215\app
+Includes=..\src;..\app
 Libs=
 PrivateResource=
 ResourceIncludes=
 MakeIncludes=
-Compiler=-DMEMWATCH -DMW_STDIO_@@_
+Compiler=-DMEMWATCH -DMW_STDIO_@@_-fopenmp_@@_
 CppCompiler=
-Linker=cbia.lib.blas.dyn.rel.x64.12.dll_@@_cbia.lib.lapack.dyn.rel.x64.12.dll_@@_
+Linker=-fopenmp_@@_cbia.lib.blas.dyn.rel.x64.12.dll_@@_cbia.lib.lapack.dyn.rel.x64.12.dll_@@_
 IsCpp=0
 Icon=
 ExeOutput=
@@ -29,7 +29,7 @@ IncludeVersionInfo=0
 SupportXPThemes=0
 CompilerSet=1
 CompilerSettings=000000e000000000001000000
-UnitCount=36
+UnitCount=42
 
 [VersionInfo]
 Major=1
@@ -391,7 +391,7 @@ OverrideBuildCmd=0
 BuildCmd=
 
 [Unit37]
-FileName=..\app\app_slepc.h
+FileName=..\app\app_phg.c
 CompileCpp=0
 Folder=
 Compile=1
@@ -412,6 +412,56 @@ BuildCmd=
 
 [Unit10]
 FileName=test_lin_sol.c
+CompileCpp=0
+Folder=
+Compile=1
+Link=1
+Priority=1000
+OverrideBuildCmd=0
+BuildCmd=
+
+[Unit38]
+FileName=..\app\app_phg.h
+CompileCpp=0
+Folder=
+Compile=1
+Link=1
+Priority=1000
+OverrideBuildCmd=0
+BuildCmd=
+
+[Unit39]
+FileName=..\app\app_hypre.c
+CompileCpp=0
+Folder=
+Compile=1
+Link=1
+Priority=1000
+OverrideBuildCmd=0
+BuildCmd=
+
+[Unit40]
+FileName=..\app\app_hypre.h
+CompileCpp=0
+Folder=
+Compile=1
+Link=1
+Priority=1000
+OverrideBuildCmd=0
+BuildCmd=
+
+[Unit41]
+FileName=test_app_phg.c
+CompileCpp=0
+Folder=
+Compile=1
+Link=1
+Priority=1000
+OverrideBuildCmd=0
+BuildCmd=
+
+[Unit42]
+FileName=test_app_hypre.c
 CompileCpp=0
 Folder=
 Compile=1

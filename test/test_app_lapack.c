@@ -1,3 +1,13 @@
+/**
+ *    @file  test_app_lapack.c
+ *   @brief  test app of LAPACK
+ *
+ *
+ *  @author  Yu Li, liyu@tjufe.edu.cn
+ *
+ *       Created:  2020/8/17
+ *      Revision:  none
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -10,7 +20,7 @@ int TestMultiVec         (void *mat, struct OPS_ *ops);
 int TestOrth             (void *mat, struct OPS_ *ops);
 int TestLinearSolver     (void *mat, struct OPS_ *ops);
 int TestMultiLinearSolver(void *mat, struct OPS_ *ops);
-int TestEigenSolver      (void *A, void *B, int argc, char *argv[], struct OPS_ *ops);
+int TestEigenSolver      (void *A, void *B, int flag, int argc, char *argv[], struct OPS_ *ops);
 int TestMultiGrid        (void *A, void *B, struct OPS_ *ops);
 
 #define TEST_PAS 0
@@ -32,9 +42,9 @@ int TestAppLAPACK(int argc, char *argv[])
 	OPS_Setup (pas_ops);
 #endif	
 	void *matA, *matB; OPS *ops;
-	
-	//int n = 29, row, col; double h = 1.0/(n+1);
-	int n = 1000+7, row, col; double h = 1.0/(n+1);
+
+	int n = 29, row, col; double h = 1.0/(n+1);
+	//int n = 1000+7, row, col; double h = 1.0/(n+1);
 	//double diag[16] = {1,1,1,2,2,3,4,5,5,5,5,8,8,9,9,9};
 	LAPACKMAT lapack_matA; 
 	lapack_matA.nrows = n; lapack_matA.ncols = n; lapack_matA.ldd = n;
@@ -101,8 +111,8 @@ int TestAppLAPACK(int argc, char *argv[])
 	double para_flt = 0.0; 
 	ops->GetOptionFromCommandLine ("-para_flt",'f',&para_flt,argc,argv, ops);
 	ops->Printf("para_flt = %f\n",para_flt);
-	const char *para_str = NULL; 
-	ops->GetOptionFromCommandLine ("-para_str",'s',&para_str,argc,argv, ops);
+	char para_str[128]="test command line"; 
+	ops->GetOptionFromCommandLine ("-para_str",'s',para_str,argc,argv, ops);
 	ops->Printf("para_str = %s\n",para_str);
 	
 	
@@ -112,7 +122,7 @@ int TestAppLAPACK(int argc, char *argv[])
 	//TestOrth(matA,ops);
 	/* The following three fucntions can not be test for PASMAT */
 	//TestLinearSolver(matA,ops);
-	TestEigenSolver(matA,matB,argc,argv,ops);
+	TestEigenSolver(matA,matB,0,argc,argv,ops);
 	//TestMultiGrid(matA,matB,ops);
 #if TEST_PAS
  	free(pas_matA.QQ); pas_matA.QQ = NULL;

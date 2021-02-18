@@ -1,21 +1,13 @@
-/*
- * =====================================================================================
+/**
+ *    @file  get_mat_phg.c
+ *   @brief   
  *
- *       Filename:  get_mat_phg.c
  *
- *    Description:  
+ *  @author  Yu Li, liyu@tjufe.edu.cn
  *
- *        Version:  1.0
- *        Created:  2020年01月01日 01时01分01秒
- *       Revision:  none
- *       Compiler:  gcc
- *
- *         Author:  YOUR NAME (), 
- *   Organization:  
- *
- * =====================================================================================
+ *       Created:  2020/9/13
+ *      Revision:  none
  */
-#if USE_PHG 
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,7 +15,10 @@
 #include <math.h>
 #include <time.h>
 
-#include "phg.h"
+#include "ops.h"
+
+#if USE_PHG 
+#include <phg.h>
 
 #if (PHG_VERSION_MAJOR <= 0 && PHG_VERSION_MINOR < 9)
 # undef ELEMENT
@@ -86,19 +81,49 @@ bc_map(int bctype)
 int
 CreateMatrixPHG(void **matA, void **matB, void **dofU, void **mapM, void **gridG, int argc, char *argv[])
 {
-    static char *fn = "/share/home/hhxie/liyu/MONA/srcNew/data/cube4.dat";
-    //static char *fn = "cube4.dat";
+#if 1
+	/* Register GCGE options before phgInit */
+	static int int_tmp; static double dbl_tmp; static char *str_tmp; static BOOLEAN bln_tmp;
+	phgOptionsRegisterInt   ("-eps_nev" , "int", &int_tmp);
+	phgOptionsRegisterInt   ("-eps_ncv" , "int", &int_tmp);
+	phgOptionsRegisterFloat ("-eps_tol" , "dbl", &dbl_tmp);
+	phgOptionsRegisterString("-eps_type", "str", &str_tmp);
+	phgOptionsRegisterNoArg ("-eps_conv_abs", "bln", &bln_tmp);	
+	phgOptionsRegisterNoArg ("-eps_conv_rel", "bln", &bln_tmp);	
+	
+	phgOptionsRegisterInt   ("-eps_lobpcg_blocksize", "int", &int_tmp);
+	phgOptionsRegisterFloat ("-eps_lobpcg_restart"  , "dbl", &dbl_tmp);	
+	phgOptionsRegisterNoArg ("-eps_monitor_conv", "bln", &bln_tmp);	
+		
+   	phgOptionsRegisterInt   ("-gcge_max_niter", "int", &int_tmp);
+   	phgOptionsRegisterFloat ("-gcge_abs_tol"  , "dbl", &dbl_tmp);
+   	phgOptionsRegisterFloat ("-gcge_rel_tol"  , "dbl", &dbl_tmp);
+   	phgOptionsRegisterInt   ("-gcge_compW_cg_max_iter", "int", &int_tmp);
+   	phgOptionsRegisterString("-gcge_initX_orth_method", "str", &str_tmp);
+   	phgOptionsRegisterString("-gcge_compP_orth_method", "str", &str_tmp);
+   	phgOptionsRegisterString("-gcge_compW_orth_method", "str", &str_tmp);
+
+	phgOptionsRegisterInt("-nevConv"  , "int", &int_tmp);
+	phgOptionsRegisterInt("-nevMax"   , "int", &int_tmp);
+	phgOptionsRegisterInt("-blockSize", "int", &int_tmp);
+	phgOptionsRegisterInt("-nevInit"  , "int", &int_tmp);
+	
+	phgOptionsRegisterInt("-use_slepc_eps", "int", &int_tmp);
+#endif
+
+    static char *fn = "../data/cube4.dat";
     static int mem_max = 3000;
-    size_t mem, mem_peak;
-    int i, j, k, n, nit;
-    int pre_refines = 13;
-    //int pre_refines = 6;
+    //size_t mem, mem_peak;
+    int i;
+    //int pre_refines = 13;
+    int pre_refines = 1;
     GRID *g;
     DOF *u_h;
     MAP *map;
     MAT *A, *B;
     double wtime;
 
+    //phgOptionsPreset("-dof_type P3");
     phgOptionsPreset("-dof_type P3");
 
     phgOptionsRegisterFilename("-mesh_file", "Mesh filename", &fn);
@@ -157,6 +182,13 @@ CreateMatrixPHG(void **matA, void **matB, void **dofU, void **mapM, void **gridG
 	  A->rmap->nglobal, phgGetTime(NULL) - wtime);
     wtime = phgGetTime(NULL);
 
+    if (!A->assembled)
+	    phgMatAssemble(A);
+    phgMatPack(A);
+    if (!B->assembled)
+	    phgMatAssemble(B);
+    phgMatPack(A);
+
     *matA  = (void *)A;
     *matB  = (void *)B;
     *dofU  = (void *)u_h;
@@ -182,7 +214,7 @@ DestroyMatrixPHG(void **matA, void **matB, void **dofU, void **mapM, void **grid
     phgFreeGrid  ((GRID**)gridG);
 
     phgPrintf( "DestroyMatrixPHG\n" );
-    //phgFinalize();
+    phgFinalize();
     return 0;
 }
 

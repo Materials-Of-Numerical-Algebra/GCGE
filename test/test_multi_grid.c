@@ -27,7 +27,7 @@ int TestMultiGrid(void *A, void *B, struct OPS_ *ops)
 	srand(0);
 		
 	ops->Printf("MultiGridCreate\n");
-	void **A_array, **B_array, **P_array; int num_levels = 2;
+	void **A_array, **B_array, **P_array; int num_levels = 3;
 	ops->MultiGridCreate (&A_array,&B_array,&P_array,&num_levels,matA,matB,ops);
 	
 	for (level = 0; level < num_levels; ++level) {
@@ -80,8 +80,8 @@ int TestMultiGrid(void *A, void *B, struct OPS_ *ops)
 	/* 测试 AMG */ 
 	/* max_iter[level*2] 前光滑次数, max_iter[level*2+1] 光滑次数
 	 * max_iter[num_levels*2] 表示 V cycle 的最大次数 */ 
-	//int    max_iter[6] = {8,10,30,100,100,100}, idx;
-	int    max_iter[6] = {1,5,1,0,100,100}, idx;
+	int    max_iter[6] = {8,10,30,100,100,100}, idx;
+	//int    max_iter[6] = {1,5,1,0,100,100}, idx;
 	/* tol[num_levels] 表示 V cycle 的停止准则, 绝对残量 */ 
 	double rate[3] = {1e-36,1e-36,1e-36}, tol[4] = {1e-36,1e-36,1e-36,1e-36}; 
 	void   ***mv_ws[5] = {NULL}; 
@@ -104,13 +104,15 @@ int TestMultiGrid(void *A, void *B, struct OPS_ *ops)
 	ops->Printf("Exact Solution:\n");
 	ops->MultiVecView(multi_vec_x[0],0,num_vec,ops);
 	//ops->MultiVecSetConstValue(multi_vec[0],0,num_vec,1.0,ops);
-	double *data = ((LAPACKVEC*)multi_vec_x[0])->data;
-	int    nrows = ((LAPACKVEC*)multi_vec_x[0])->nrows;
-	int    ldd   = ((LAPACKVEC*)multi_vec_x[0])->ldd;
-	for (idx = 0; idx < ldd*num_vec;++idx) {
-		data[idx] = 1;
-	}	
-	//ops->MultiVecSetRandomValue(multi_vec_x[0],start[0],end[0],ops);
+	//double *data = ((LAPACKVEC*)multi_vec_x[0])->data;
+	//int    nrows = ((LAPACKVEC*)multi_vec_x[0])->nrows;
+	//int    ldd   = ((LAPACKVEC*)multi_vec_x[0])->ldd;
+	//for (idx = 0; idx < ldd*num_vec;++idx) {
+        //	data[idx] = 1;
+	//}	
+	ops->MultiVecSetRandomValue(multi_vec_x[0],start[0],end[0],ops);
+	ops->Printf("Initial Guess:\n");
+	ops->MultiVecView(multi_vec_x[0],0,num_vec,ops);
 	ops->MultiVecAxpby(0.0,NULL,1e0,multi_vec_x[0],start,end,ops);	
 	MultiLinearSolverSetup_BlockAMG(max_iter, rate, tol,
 		"abs", A_array, P_array, num_levels, 

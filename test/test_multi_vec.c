@@ -130,11 +130,11 @@ int TestMultiVec(void *mat, struct OPS_ *ops)
 		start,end,ops);
 	ops->MultiVecView(multi_vec[1],start[1],end[1],ops);
 	ops->Printf("y = A^t x\n");
-	start[0] = 1; end[0] = num_vec_x;
-	start[1] = 1; end[1] = num_vec_x;
-	ops->MatTransDotMultiVec(mat,multi_vec[0],multi_vec[1],
-		start,end,ops);
-	ops->MultiVecView(multi_vec[1],start[1],end[1],ops);
+	//start[0] = 1; end[0] = num_vec_x;
+	//start[1] = 1; end[1] = num_vec_x;
+	//ops->MatTransDotMultiVec(mat,multi_vec[0],multi_vec[1],
+        //	start,end,ops);
+	//ops->MultiVecView(multi_vec[1],start[1],end[1],ops);
 	
 	double *qAp; int ldQAP;
 	ops->Printf("S,S: y^t lower(A) y = \n");
