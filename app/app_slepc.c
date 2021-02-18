@@ -2,14 +2,13 @@
  *    @file  app_slepc.c
  *   @brief  app of slecp 
  *
- *  ä¸æ”¯æŒå•å‘é‡æ“ä½œ 
+ *  ²»Ö§³Öµ¥ÏòÁ¿²Ù×÷ 
  *
  *  @author  Yu Li, liyu@tjufe.edu.cn
  *
  *       Created:  2020/9/13
  *      Revision:  none
  */
-
 
 #include	<stdio.h>
 #include	<stdlib.h>
@@ -19,14 +18,15 @@
  
 #include	"app_slepc.h"
 
+#if USE_SLEPC
 #define DEBUG 0
 
-#if USE_SLEPC
 
-/* è¿›ç¨‹åˆ†ç»„, ä¸»è¦ç”¨äº AMG, é»˜è®¤æœ€å¤§å±‚æ•°æ˜¯16 */ 
+
+/* ½ø³Ì·Ö×é, Ö÷ÒªÓÃÓÚ AMG, Ä¬ÈÏ×î´ó²ãÊıÊÇ16 */ 
 int       MG_COMM_COLOR[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-/* èƒ½å¦è¿™æ ·èµ‹åˆå€¼ å°¤å…¶æ—¶ MPI_COMM_WORLD 
- * å¦å¤–, è¿™äº›åˆ›å»ºå‡ºæ¥çš„é€šè®¯åŸŸå¯ä»¥ MPI_Comm_free å—? ä½•æ—¶ */ 
+/* ÄÜ·ñÕâÑù¸³³õÖµ ÓÈÆäÊ± MPI_COMM_WORLD 
+ * ÁíÍâ, ÕâĞ©´´½¨³öÀ´µÄÍ¨Ñ¶Óò¿ÉÒÔ MPI_Comm_free Âğ? ºÎÊ± */ 
 MPI_Comm  MG_COMM[16][2] = {
 	{MPI_COMM_NULL,MPI_COMM_NULL},{MPI_COMM_NULL,MPI_COMM_NULL},
 	{MPI_COMM_NULL,MPI_COMM_NULL},{MPI_COMM_NULL,MPI_COMM_NULL},
@@ -76,13 +76,12 @@ static void MultiVecLocalInnerProd (char nsdIP,
 	assert(is_vec==0);
 	
     const PetscScalar *x_array, *y_array;
-    int x_nrows, x_ncols = end[0]-start[0];
-    int y_nrows, y_ncols = end[1]-start[1];
+    int x_nrows, x_ncols, y_nrows, y_ncols;
     BVGetArrayRead(x,&x_array);
-    BVGetSizes(x,&x_nrows,NULL,NULL);
+    BVGetSizes(x,&x_nrows,NULL,&x_ncols);
     if(is_vec == 0) {
 		BVGetArrayRead(y,&y_array);
-		BVGetSizes(y,&y_nrows,NULL,NULL);
+		BVGetSizes(y,&y_nrows,NULL,&y_ncols);
 		LAPACKVEC x_vec, y_vec;
 		x_vec.nrows = x_nrows; y_vec.nrows = y_nrows;
 		x_vec.ncols = x_ncols; y_vec.ncols = y_ncols;
@@ -95,23 +94,6 @@ static void MultiVecLocalInnerProd (char nsdIP,
 		BVRestoreArrayRead(y, &y_array);
 	}
     BVRestoreArrayRead(x,&x_array);
-#if DEBUG
-    int row, col;
-    if (nsdIP=='D') {
-       for (row = 0; row < end[0]-start[0]; ++row) {
-	  ops->Printf("%6.4e\t",inner_prod[row*ldIP]);
-       }
-       ops->Printf("\n");
-    }
-    else {
-       for (row = 0; row < end[0]-start[0]; ++row) {
-	  for (col = 0; col < end[1]-start[1]; ++col) {
-	     ops->Printf("%6.4e\t",inner_prod[row+col*ldIP]);
-	  }
-	  ops->Printf("\n");
-       }
-    }
-#endif
 	return;
 }
 static void MultiVecSetRandomValue (BV x, int start, int end, struct OPS_ *ops)
@@ -125,16 +107,13 @@ static void MultiVecAxpby (double alpha, BV x,
 {
 	assert(end[0]-start[0]==end[1]-start[1]);
     PetscScalar *y_array;
-    int x_nrows, x_ncols = end[0]-start[0];
-    int y_nrows, y_ncols = end[1]-start[1];
+    int x_nrows, x_ncols, y_nrows, y_ncols;
 
     BVGetArray(y,&y_array);
-    BVGetSizes(y,&y_nrows,NULL,NULL);
+    BVGetSizes(y,&y_nrows,NULL,&y_ncols);
     LAPACKVEC y_vec;
-    y_vec.nrows = y_nrows;
-    y_vec.ncols = y_ncols;
-    y_vec.ldd   = y_nrows;
-    y_vec.data  = y_array;
+    y_vec.nrows = y_nrows; y_vec.ncols = y_ncols;
+    y_vec.ldd   = y_nrows; y_vec.data  = y_array;
     if (x==NULL) {
 #if 0
        ops->lapack_ops->MultiVecAxpby(alpha,
@@ -144,31 +123,31 @@ static void MultiVecAxpby (double alpha, BV x,
        BVScale(y,beta);
 #endif
     }
-    else {
-       if (x!=y) {
-	  BVSetActiveColumns(x,start[0],end[0]);
-	  BVSetActiveColumns(y,start[1],end[1]);
-	  BVMult(y,alpha,beta,x,NULL);
-       }
-       else if (start[0]==start[1]) {
-	  BVSetActiveColumns(y,start[1],end[1]);
-	  BVScale(y,(alpha+beta));
-       }
-       else {
-	  assert(end[0]<=start[1]||end[1]<=start[0]);
-	  const PetscScalar *x_array;
-	  LAPACKVEC x_vec;
-	  BVGetArrayRead(x,&x_array);
-	  BVGetSizes(x,&x_nrows,NULL,NULL);
-	  x_vec.nrows = x_nrows;
-	  x_vec.ncols = x_ncols;
-	  x_vec.ldd   = x_nrows;
-	  x_vec.data  = (double *)x_array; 
-	  ops->lapack_ops->MultiVecAxpby(alpha,
-		(void**)&x_vec,beta,(void**)&y_vec,start,end,ops->lapack_ops);
-	  BVRestoreArrayRead(x, &x_array);
-       }
-    }
+	else {
+		if (x!=y) {
+			BVSetActiveColumns(x,start[0],end[0]);
+			BVSetActiveColumns(y,start[1],end[1]);
+			BVMult(y,alpha,beta,x,NULL);
+		}
+		else if (start[0]==start[1]) {
+			BVSetActiveColumns(y,start[1],end[1]);
+			BVScale(y,(alpha+beta));
+		}
+		else {
+			assert(end[0]<=start[1]||end[1]<=start[0]);
+			const PetscScalar *x_array;
+			LAPACKVEC x_vec;
+			BVGetArrayRead(x,&x_array);
+			BVGetSizes(x,&x_nrows,NULL,&x_ncols);
+			x_vec.nrows = x_nrows;
+			x_vec.ncols = x_ncols;
+			x_vec.ldd   = x_nrows;
+			x_vec.data  = (double *)x_array; 
+			ops->lapack_ops->MultiVecAxpby(alpha,
+					(void**)&x_vec,beta,(void**)&y_vec,start,end,ops->lapack_ops);
+			BVRestoreArrayRead(x, &x_array);
+		}
+	}
     BVRestoreArray(y, &y_array);
 
     return;
@@ -252,11 +231,10 @@ static void MultiVecLinearComb (BV x, BV y, int is_vec,
 {
     assert(is_vec==0);
     PetscScalar *y_array;
-    int x_nrows, x_ncols = end[0]-start[0];
-    int y_nrows, y_ncols = end[1]-start[1];
+    int x_nrows, x_ncols, y_nrows, y_ncols;
 
     BVGetArray(y,&y_array);
-    BVGetSizes(y,&y_nrows,NULL,NULL);
+    BVGetSizes(y,&y_nrows,NULL,&y_ncols);
     LAPACKVEC y_vec;
     y_vec.nrows = y_nrows;
     y_vec.ncols = y_ncols;
@@ -272,7 +250,7 @@ static void MultiVecLinearComb (BV x, BV y, int is_vec,
 		const PetscScalar *x_array;
 		LAPACKVEC x_vec;
 		BVGetArrayRead(x,&x_array);
-		BVGetSizes(x,&x_nrows,NULL,NULL);
+		BVGetSizes(x,&x_nrows,NULL,&x_ncols);
 		x_vec.nrows = x_nrows; 
 		x_vec.ncols = x_ncols; 
 		x_vec.ldd   = x_nrows; 
@@ -342,7 +320,7 @@ static void SLEPC_MatTransDotMultiVec (void *mat, void **x,
 static void SLEPC_MultiGridCreate (void ***A_array, void ***B_array, void ***P_array,
 		int *num_levels, void *A, void *B, struct OPS_ *ops)
 {
-	/* P æ˜¯è¡Œå¤šåˆ—å°‘, Px æ˜¯ä»ç²—åˆ°ç»† */
+	/* P ÊÇĞĞ¶àÁĞÉÙ, Px ÊÇ´Ó´Öµ½Ï¸ */
 	PetscInt m, n, level;
 	Mat   *petsc_A_array = NULL, *petsc_B_array = NULL, *petsc_P_array = NULL;
 	PC    pc;
@@ -477,7 +455,7 @@ static void SLEPC_MultiVecQtAP (char ntsA, char nsdQAP,
 		BVSetMatrix((BV)mvP,(Mat)matA,PETSC_FALSE);
 		BVSetMatrix((BV)mvQ,(Mat)matA,PETSC_FALSE);
 		Mat dense_mat; const double *source;
-		int nrows = end[0]-start[0], ncols = end[1]-start[1], row, col;		
+		int nrows = end[0]-start[0], ncols = end[1]-start[1], col;		
 		MatCreateSeqDense(PETSC_COMM_SELF,end[0],end[1],NULL,&dense_mat);        
 		/* Qt A P */
 		/* M must be a sequential dense Mat with dimensions m,n at least, 
@@ -487,8 +465,9 @@ static void SLEPC_MultiVecQtAP (char ntsA, char nsdQAP,
 		 * where ly (resp. lx) is the number of leading columns of Q (resp. P). */		
 		BVDot((BV)mvP, (BV)mvQ, dense_mat);		
 		MatDenseGetArrayRead(dense_mat, &source);        
-		/* å½“ qAp è¿ç»­å­˜å‚¨ */
+		/* µ± qAp Á¬Ğø´æ´¢ */
 #if DEBUG
+		int row;
 		ops->Printf("(%d, %d), (%d, %d)\n", start[0], end[0], start[1], end[1]);
 		for(row = 0; row < end[0]; ++row) {
 		   for(col = 0; col < end[1]; ++col) {
@@ -523,11 +502,12 @@ void SLEPC_MultiVecInnerProd      (char nsdIP, void **x, void **y, int is_vec, i
 	   BVSetMatrix((BV)y,NULL,PETSC_FALSE);
 	   BVSetMatrix((BV)x,NULL,PETSC_FALSE);
 	   Mat dense_mat; const double *source;
-	   int nrows = end[0]-start[0], ncols = end[1]-start[1], row, col;		
+	   int nrows = end[0]-start[0], ncols = end[1]-start[1], col;		
 	   MatCreateSeqDense(PETSC_COMM_SELF,end[0],end[1],NULL,&dense_mat);        
 	   BVDot((BV)y, (BV)x, dense_mat);		
 	   MatDenseGetArrayRead(dense_mat, &source);        
 #if DEBUG
+	   int row;
 	   for(row = 0; row < end[0]; ++row) {
 	      for(col = 0; col < end[1]; ++col) {
 		 ops->Printf("%6.4e\t", source[end[0]*col+row]);
@@ -535,7 +515,7 @@ void SLEPC_MultiVecInnerProd      (char nsdIP, void **x, void **y, int is_vec, i
 	      ops->Printf("%\n");
 	   }
 #endif
-	   /* å½“ inner_prod è¿ç»­å­˜å‚¨ */
+	   /* µ± inner_prod Á¬Ğø´æ´¢ */
 	   if (start[0]==0&&ldIP==nrows) {
 	      memcpy(inner_prod,source+nrows*start[1],nrows*ncols*sizeof(double)); 	
 	   }
@@ -556,24 +536,26 @@ int SLEPC_GetOptionFromCommandLine (
 		const char *name, char type, void *value,
 		int argc, char* argv[], struct OPS_ *ops)
 {
-   PetscBool set;
-   int *int_value; double *dbl_value;
-   switch (type) {
-      case 'i':
-	 int_value = (int*)value; 
-	 PetscOptionsGetInt(NULL, NULL, name, int_value, &set);
-	 break;
-      case 'f':
-	 dbl_value = (double*)value; 
-	 PetscOptionsGetReal(NULL, NULL, name, dbl_value, &set);
-	 break;
-      case 's':
-	 set = DefaultGetOptionFromCommandLine(name, type, value, argc, argv, ops);
-	 break;
-      default:
-	 break;
-   }	        
-   return set;
+	PetscBool set;
+	int *int_value; double *dbl_value; char *str_value; 
+	switch (type) {
+		case 'i':
+			int_value = (int*)value; 
+			PetscOptionsGetInt(NULL, NULL, name, int_value, &set);
+			break;
+		case 'f':
+			dbl_value = (double*)value; 
+			PetscOptionsGetReal(NULL, NULL, name, dbl_value, &set);
+			break;
+		case 's':
+			str_value = (char*) value;
+			PetscOptionsGetString(NULL, NULL, name, str_value, 8, &set);
+			//set = DefaultGetOptionFromCommandLine(name, type, value, argc, argv, ops);
+			break;
+			default:
+		break;
+	}	        
+	return set;
 }
 
 
@@ -592,8 +574,8 @@ void OPS_SLEPC_Set (struct OPS_ *ops)
 	ops->MatDotMultiVec         = SLEPC_MatDotMultiVec        ;
 	ops->MatTransDotMultiVec    = SLEPC_MatTransDotMultiVec   ;
 	ops->MultiVecLinearComb     = SLEPC_MultiVecLinearComb    ;
-	ops->MultiVecQtAP           = SLEPC_MultiVecQtAP          ;
-	ops->MultiVecInnerProd      = SLEPC_MultiVecInnerProd     ; 
+	//ops->MultiVecQtAP           = SLEPC_MultiVecQtAP          ;
+	//ops->MultiVecInnerProd      = SLEPC_MultiVecInnerProd     ; 
 	/* multi grid */
 	ops->MultiGridCreate        = SLEPC_MultiGridCreate ;
 	ops->MultiGridDestroy       = SLEPC_MultiGridDestroy;
@@ -610,7 +592,7 @@ void OPS_SLEPC_Set (struct OPS_ *ops)
  * @param petsc_P_array
  * @param num_levels
  * @param proc_rate
- * @param unit           ä¿è¯æ¯å±‚nbigranksæ˜¯unitçš„å€æ•°
+ * @param unit           ±£Ö¤Ã¿²ãnbigranksÊÇunitµÄ±¶Êı
  */
 void PETSC_RedistributeDataOfMultiGridMatrixOnEachProcess(
      Mat  *petsc_A_array, Mat   *petsc_B_array, Mat *petsc_P_array, 
@@ -625,7 +607,7 @@ void PETSC_RedistributeDataOfMultiGridMatrixOnEachProcess(
 	PetscInt      global_nrows, global_ncols; 
 	PetscInt      local_nrows , local_ncols ;
 	PetscInt      new_local_ncols;
-	/* ä¿è¯æ¯å±‚nbigranksæ˜¯unitçš„å€æ•° */
+	/* ±£Ö¤Ã¿²ãnbigranksÊÇunitµÄ±¶Êı */
 	PetscInt      rstart, rend, ncols;
 	const PetscInt              *cols; 
 	const PetscScalar           *vals;
@@ -637,37 +619,37 @@ void PETSC_RedistributeDataOfMultiGridMatrixOnEachProcess(
 		PetscPrintf(PETSC_COMM_WORLD, "Warning the refinest matrix cannot be redistributed\n");
 	}
 
-	/* ä¸æ”¹å˜æœ€ç»†å±‚çš„è¿›ç¨‹åˆ†å¸ƒ */
+	/* ²»¸Ä±ä×îÏ¸²ãµÄ½ø³Ì·Ö²¼ */
 	MPI_Comm_dup(PETSC_COMM_WORLD, &MG_COMM[0][0]);
 	MG_COMM[0][1]    = MPI_COMM_NULL;
 	MG_INTERCOMM[0]  = MPI_COMM_NULL;
 	MG_COMM_COLOR[0] = 0;
 	for (level = 1; level < num_levels; ++level) {
 		MatGetSize(petsc_P_array[level-1], &global_nrows, &global_ncols);
-		/* åœ¨è®¾å®šnew_P_Hçš„å±€éƒ¨è¡Œæ—¶å·²ç»ä¸èƒ½ç”¨ä»¥å‰Pçš„å±€éƒ¨è¡Œï¼Œå› ä¸ºå½“å‰å±‚çš„Aå¯èƒ½å·²ç»æ”¹å˜ */
+		/* ÔÚÉè¶¨new_P_HµÄ¾Ö²¿ĞĞÊ±ÒÑ¾­²»ÄÜÓÃÒÔÇ°PµÄ¾Ö²¿ĞĞ£¬ÒòÎªµ±Ç°²ãµÄA¿ÉÄÜÒÑ¾­¸Ä±ä */
 		MatGetLocalSize(petsc_A_array[level-1], &local_nrows, &local_ncols);
-		/* åº”è¯¥é€šè¿‡ncols_Pï¼Œå³æœ€ç²—å±‚çŸ©é˜µå¤§å°å’Œè¿›ç¨‹æ€»æ•°sizeç¡®å®šnbigranks */
+		/* Ó¦¸ÃÍ¨¹ıncols_P£¬¼´×î´Ö²ã¾ØÕó´óĞ¡ºÍ½ø³Ì×ÜÊısizeÈ·¶¨nbigranks */
 		nbigranks = ((PetscInt)((((PetscReal)size)*proc_rate[level])/((PetscReal)unit))) * (unit);
 		if (nbigranks < unit) nbigranks = unit<size?unit:size;
-		/* è‹¥proc_rateè®¾ä¸º(0,1)ä¹‹å¤–ï¼Œåˆ™ä¸è¿›è¡Œæ•°æ®é‡åˆ†é…/ */
+		/* Èôproc_rateÉèÎª(0,1)Ö®Íâ£¬Ôò²»½øĞĞÊı¾İÖØ·ÖÅä/ */
 		if (proc_rate[level]>1.0 || proc_rate[level]<=0.0 || nbigranks >= size || nbigranks <= 0) 		{
 			PetscPrintf(PETSC_COMM_WORLD, "Retain data distribution of %D level\n", level);
-			/* åˆ›å»ºåˆ†å±‚çŸ©é˜µçš„é€šä¿¡åŸŸ */
+			/* ´´½¨·Ö²ã¾ØÕóµÄÍ¨ĞÅÓò */
 			MG_COMM_COLOR[level] = 0;
-			/* TODO: æ˜¯å¦å¯ä»¥ç›´æ¥èµ‹å€¼
+			/* TODO: ÊÇ·ñ¿ÉÒÔÖ±½Ó¸³Öµ
 			 * MG_COMM[level][0] = PETSC_COMM_WORLD */ 
 			MPI_Comm_dup(PETSC_COMM_WORLD, &MG_COMM[level][0]);
 			MG_COMM[level][1]   = MPI_COMM_NULL;
 			MG_INTERCOMM[level] = MPI_COMM_NULL;
-			continue; /* ç›´æ¥åˆ°ä¸‹ä¸€æ¬¡å¾ªç¯ */
+			continue; /* Ö±½Óµ½ÏÂÒ»´ÎÑ­»· */
 		} else {
 			PetscPrintf(PETSC_COMM_WORLD, "Redistribute data of %D level\n", level);
 			PetscPrintf(PETSC_COMM_WORLD, "nbigranks[%D] = %D\n", level, nbigranks);
 		}
-		/* ä¸Šé¢çš„åˆ¤æ–­å·²ç»ä¿è¯ 0 < nbigranks < size */
-		/* åˆ›å»ºåˆ†å±‚çŸ©é˜µçš„é€šä¿¡åŸŸ */
+		/* ÉÏÃæµÄÅĞ¶ÏÒÑ¾­±£Ö¤ 0 < nbigranks < size */
+		/* ´´½¨·Ö²ã¾ØÕóµÄÍ¨ĞÅÓò */
 		int comm_color, local_leader, remote_leader;
-		/* å¯¹0åˆ°nbigranks-1è¿›ç¨‹å¹³å‡åˆ†é…global_ncols */
+		/* ¶Ô0µ½nbigranks-1½ø³ÌÆ½¾ù·ÖÅäglobal_ncols */
 		new_local_ncols = 0;
 		if (rank < nbigranks) {
 			new_local_ncols = global_ncols/nbigranks;
@@ -679,13 +661,13 @@ void PETSC_RedistributeDataOfMultiGridMatrixOnEachProcess(
 			remote_leader = nbigranks;
 		} else {
 			comm_color    = 1;
-			local_leader  = 0; /* å®ƒçš„å…¨å±€è¿›ç¨‹å·æ˜¯nbigranks */
+			local_leader  = 0; /* ËüµÄÈ«¾Ö½ø³ÌºÅÊÇnbigranks */
 			remote_leader = 0;
 		}
-      	/* åœ¨ä¸åŒè¿›ç¨‹ä¸­MG_COMM_COLOR[level]æ˜¯ä¸ä¸€æ ·çš„å€¼ï¼Œå®ƒè¡¨å¾è¯¥è¿›ç¨‹å±äºå“ªä¸ªé€šè®¯åŸŸ */
+      	/* ÔÚ²»Í¬½ø³ÌÖĞMG_COMM_COLOR[level]ÊÇ²»Ò»ÑùµÄÖµ£¬Ëü±íÕ÷¸Ã½ø³ÌÊôÓÚÄÄ¸öÍ¨Ñ¶Óò */
       	MG_COMM_COLOR[level] = comm_color;
-    	/* åˆ†æˆä¸¤ä¸ªå­é€šè®¯åŸŸ, MG_COMM[level][0]ä»0~(nbigranks-1)
-    	 * MG_COMM[level][0]ä»nbigranks~(size-1) */
+    	/* ·Ö³ÉÁ½¸ö×ÓÍ¨Ñ¶Óò, MG_COMM[level][0]´Ó0~(nbigranks-1)
+    	 * MG_COMM[level][0]´Ónbigranks~(size-1) */
     	MPI_Comm_split(PETSC_COMM_WORLD, comm_color, rank, &MG_COMM[level][comm_color]);
     	MPI_Intercomm_create(MG_COMM[level][comm_color], local_leader, 
 	    	PETSC_COMM_WORLD, remote_leader, level, &MG_INTERCOMM[level]);
@@ -696,8 +678,8 @@ void PETSC_RedistributeDataOfMultiGridMatrixOnEachProcess(
      	PetscPrintf(PETSC_COMM_SELF, "aux %D/%D, global %D/%D\n", 
 			aux_rank, aux_size, rank, size);  
 
-      	/* åˆ›å»ºæ–°çš„å»¶æ‹“çŸ©é˜µ, å¹¶ç”¨åŸå§‹çš„Pä¸ºä¹‹èµ‹å€¼
-		 * æ–°çš„Pä¸åŸæ¥çš„Påªæœ‰ å±€éƒ¨åˆ—æ•°new_local_ncols ä¸åŒ */
+      	/* ´´½¨ĞÂµÄÑÓÍØ¾ØÕó, ²¢ÓÃÔ­Ê¼µÄPÎªÖ®¸³Öµ
+		 * ĞÂµÄPÓëÔ­À´µÄPÖ»ÓĞ ¾Ö²¿ÁĞÊınew_local_ncols ²»Í¬ */
       	MatCreate(PETSC_COMM_WORLD, &new_P_H);
       	MatSetSizes(new_P_H, local_nrows, new_local_ncols, global_nrows, global_ncols);
       	//MatSetFromOptions(new_P_H);
@@ -722,7 +704,7 @@ void PETSC_RedistributeDataOfMultiGridMatrixOnEachProcess(
 	    	rank, level, local_nrows, local_ncols);
       	//MatView(petsc_P_array[level-1], viewer);
       	//MatView(new_P_H, viewer);
-      	/* é”€æ¯ä¹‹å‰çš„P_H A_H B_H */
+      	/* Ïú»ÙÖ®Ç°µÄP_H A_H B_H */
       	MatDestroy(&(petsc_P_array[level-1]));
       	MatDestroy(&(petsc_A_array[level]));
       	if (petsc_B_array!=NULL) {
@@ -738,18 +720,18 @@ void PETSC_RedistributeDataOfMultiGridMatrixOnEachProcess(
       	}
       	//MatView(petsc_A_array[num_levels-1], viewer);
       	//MatView(petsc_B_array[num_levels-1], viewer);
-      	/* è¿™é‡Œéœ€è¦ä¿®æ”¹petsc_P_array[level], åŸå› æ˜¯
-       	 * petsc_A_array[level]ä¿®æ”¹åï¼Œ
-      	 * å®ƒåˆ©ç”¨åŸæ¥çš„petsc_P_array[level]æ’å€¼ä¸Šæ¥çš„å‘é‡å·²ç»ä¸petsc_A_array[level]ä¸åŒ¹é…
-      	 * æ‰€ä»¥åœ¨ä¸ä¿®æ”¹level+1å±‚çš„åˆ†å¸ƒç»“æ„çš„æƒ…å†µä¸‹ï¼Œéœ€è¦å¯¹petsc_P_array[level]è¿›è¡Œä¿®æ”¹ */
-     	/* å¦‚æœå½“å‰å±‚ä¸æ˜¯æœ€ç²—å±‚ï¼Œå¹¶ä¸”ï¼Œä¸‹ä¸€å±‚ä¹Ÿä¸è¿›è¡Œæ•°æ®é‡åˆ†é… */
+      	/* ÕâÀïĞèÒªĞŞ¸Äpetsc_P_array[level], Ô­ÒòÊÇ
+       	 * petsc_A_array[level]ĞŞ¸Äºó£¬
+      	 * ËüÀûÓÃÔ­À´µÄpetsc_P_array[level]²åÖµÉÏÀ´µÄÏòÁ¿ÒÑ¾­Óëpetsc_A_array[level]²»Æ¥Åä
+      	 * ËùÒÔÔÚ²»ĞŞ¸Älevel+1²ãµÄ·Ö²¼½á¹¹µÄÇé¿öÏÂ£¬ĞèÒª¶Ôpetsc_P_array[level]½øĞĞĞŞ¸Ä */
+     	/* Èç¹ûµ±Ç°²ã²»ÊÇ×î´Ö²ã£¬²¢ÇÒ£¬ÏÂÒ»²ãÒ²²»½øĞĞÊı¾İÖØ·ÖÅä */
       	if (level+1<num_levels && (proc_rate[level+1]>1.0 || proc_rate[level+1]<=0.0) ) {
 	 		MatGetSize(petsc_P_array[level], &global_nrows, &global_ncols);
-	 		/*éœ€è¦å½“å‰å±‚Açš„åˆ— ä½œä¸ºPçš„è¡Œ */
+	 		/*ĞèÒªµ±Ç°²ãAµÄÁĞ ×÷ÎªPµÄĞĞ */
 	 		MatGetLocalSize(petsc_A_array[level],   &new_local_ncols, &local_ncols);
-	 		/*éœ€è¦ä¸‹ä¸€å±‚Açš„è¡Œ ä½œä¸ºPçš„åˆ— */
+	 		/*ĞèÒªÏÂÒ»²ãAµÄĞĞ ×÷ÎªPµÄÁĞ */
 	 		MatGetLocalSize(petsc_A_array[level+1], &local_nrows, &new_local_ncols);
-	 		/* åˆ›å»ºæ–°çš„å»¶æ‹“çŸ©é˜µ, å¹¶ç”¨åŸå§‹çš„Pä¸ºä¹‹èµ‹å€¼ */
+	 		/* ´´½¨ĞÂµÄÑÓÍØ¾ØÕó, ²¢ÓÃÔ­Ê¼µÄPÎªÖ®¸³Öµ */
 	 		MatCreate(PETSC_COMM_WORLD, &new_P_H);
 	 		MatSetSizes(new_P_H, local_ncols, local_nrows, global_nrows, global_ncols);
 	 		//MatSetFromOptions(new_P_H);
@@ -765,7 +747,7 @@ void PETSC_RedistributeDataOfMultiGridMatrixOnEachProcess(
 			}
 			MatAssemblyBegin(new_P_H,MAT_FINAL_ASSEMBLY);
 			MatAssemblyEnd(new_P_H,MAT_FINAL_ASSEMBLY);
-			/* é”€æ¯åŸå§‹çš„ P_H */
+			/* Ïú»ÙÔ­Ê¼µÄ P_H */
 			MatDestroy(&(petsc_P_array[level]));
 			petsc_P_array[level] = new_P_H;
       	}

@@ -24,7 +24,7 @@ static void MatView (CCSMAT *mat, struct OPS_ *ops)
 	 * j_col[j] <= i < j_col[j+1] */
 	LAPACKVEC *multi_vec;
 	ops->MultiVecCreateByMat((void ***)(&multi_vec), mat->ncols, mat, ops);
-	int row, col, i; double *destin; 
+	int col, i; double *destin; 
 	for (col = 0; col < mat->ncols; ++col) {
 		for (i = mat->j_col[col]; i < mat->j_col[col+1]; ++i) {
 			destin  = multi_vec->data+(multi_vec->ldd)*col+mat->i_row[i];

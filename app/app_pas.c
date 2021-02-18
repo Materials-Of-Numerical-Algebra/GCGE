@@ -140,16 +140,13 @@ static void MultiVecInnerProd (char nsdIP,
 #if USE_MPI		
 	MPI_Request request; MPI_Status status;
 	/* 创建矩阵块类型, 用于MPI通讯 */
-	CreateMPIDataTypeSubMat(&SUBMAT_TYPE,nrows,ncols,ldIP);
+	MPI_Datatype data_type; MPI_Op op; 
+	CreateMPIDataTypeSubMat(&data_type,nrows,ncols,ldIP);
 	if (PASMAT_COMM_COLOR == 0) {
-		assert(SUBMAT_OP_USED == 0);
-		int commute = 1;
-		MPI_Op_create((MPI_User_function*)user_fn_submat_sum,
-			commute,&SUBMAT_OP);
-		SUBMAT_OP_USED = 1;
+		CreateMPIOpSubMatSum(&op);
 		/* 非阻塞求和归约, 1 个 SUBMAT_TYPE */
-		MPI_Iallreduce(MPI_IN_PLACE,inner_prod,1,SUBMAT_TYPE,
-			SUBMAT_OP,PASMAT_COMM[0],&request);
+		MPI_Iallreduce(MPI_IN_PLACE,inner_prod,1,data_type,
+			op,PASMAT_COMM[0],&request);
 	}	
 #endif
 	int length = nrows*ncols;
@@ -162,10 +159,10 @@ static void MultiVecInnerProd (char nsdIP,
 	if (PASMAT_COMM_COLOR == 0) {
 		/* 非阻塞完成 */
 		MPI_Wait(&request, &status);
-		MPI_Op_free(&SUBMAT_OP); SUBMAT_OP_USED = 0;
+		DestroyMPIOpSubMatSum(&op);
 	}
 	/* 销毁矩阵块类型 */
-	DestroyMPIDataTypeSubMat(&SUBMAT_TYPE);
+	DestroyMPIDataTypeSubMat(&data_type);
 #endif
 	/* q_{a_0}^{\top}p_{a_1}+x_{a_0}^{\top}y_{a_1} */
 	int inc = 1, idx;  double one = 1.0, *destin = dbl_ws;
@@ -238,16 +235,13 @@ static void MatDotMultiVec (PASMAT *mat, PASVEC *x,
 	nrows = end[0]-start[0]; ncols = end[1]-start[1];
 #if USE_MPI
 	MPI_Request request; MPI_Status status;
-	CreateMPIDataTypeSubMat(&SUBMAT_TYPE,nrows,ncols,ldIP);
+	MPI_Datatype data_type; MPI_Op op; 
+	CreateMPIDataTypeSubMat(&data_type,nrows,ncols,ldIP);
 	if (PASMAT_COMM_COLOR == 0) {
-		assert(SUBMAT_OP_USED == 0);
-		int commute = 1;
-		MPI_Op_create((MPI_User_function*)user_fn_submat_sum,
-			commute,&SUBMAT_OP);
-		SUBMAT_OP_USED = 1;
+		CreateMPIOpSubMatSum(&op);
 		/* 非阻塞求和归约, 1 个 SUBMAT_TYPE */
-		MPI_Iallreduce(MPI_IN_PLACE,inner_prod,
-			1,SUBMAT_TYPE,SUBMAT_OP,PASMAT_COMM[0],&request);
+		MPI_Iallreduce(MPI_IN_PLACE,inner_prod,1,
+		      data_type,op,PASMAT_COMM[0],&request);
 	}
 #endif
 	/* QX x */
@@ -271,10 +265,10 @@ static void MatDotMultiVec (PASMAT *mat, PASVEC *x,
 	if (PASMAT_COMM_COLOR == 0) {
 		/* 非阻塞完成 */
 		MPI_Wait(&request, &status);
-		MPI_Op_free(&SUBMAT_OP); SUBMAT_OP_USED = 0;
+		DestroyMPIOpSubMatSum(&op);
 	}
 	/* 销毁矩阵块类型 */
-	DestroyMPIDataTypeSubMat(&SUBMAT_TYPE);
+	DestroyMPIDataTypeSubMat(&data_type);
 #endif
 	start[0] = 0          ; end[0] = end_xy[1]-start_xy[1];
 	start[1] = start_xy[1]; end[1] = end_xy[1];
@@ -389,7 +383,8 @@ static void PAS_MultiVecInnerProd (char nsdIP,
 	/* 创建矩阵块类型, 用于MPI通讯 */
 	int nrows = end[0]-start[0], ncols = end[1]-start[1];
 	if (nsdIP=='D') nrows = 1; 
-	CreateMPIDataTypeSubMat(&SUBMAT_TYPE,nrows,ncols,ldIP);
+	MPI_Datatype data_type;
+	CreateMPIDataTypeSubMat(&data_type,nrows,ncols,ldIP);
 	/* 组间通讯, 将内积广播给 1 组 */
 	if (PASMAT_COMM_COLOR==0&&PASMAT_INTERCOMM!=MPI_COMM_NULL) {
 		int local_rank, root_proc;
@@ -397,16 +392,16 @@ static void PAS_MultiVecInnerProd (char nsdIP,
 		if (local_rank == 0) root_proc = MPI_ROOT;
 		else root_proc = MPI_PROC_NULL;
 		/* 广播 1 个 SUBMAT_TYPE */
-		MPI_Bcast(inner_prod,1,SUBMAT_TYPE,root_proc,
+		MPI_Bcast(inner_prod,1,data_type,root_proc,
 			PASMAT_INTERCOMM);
 	}
 	if (PASMAT_COMM_COLOR == 1) {
 		int remote_root_proc = 0; /* 发送组在组内的根进程号 */
-		MPI_Bcast(inner_prod,1,SUBMAT_TYPE,remote_root_proc,
+		MPI_Bcast(inner_prod,1,data_type,remote_root_proc,
 			PASMAT_INTERCOMM);
 	}
 	/* 销毁矩阵块类型 */
-	DestroyMPIDataTypeSubMat(&SUBMAT_TYPE);
+	DestroyMPIDataTypeSubMat(&data_type);
 #endif
 	return;
 }
@@ -435,7 +430,8 @@ static void PAS_MatDotMultiVec (void *mat, void **x,
 	/* TODO: 如果 nrows==ldd 则数据本身是连续的,
 	 *       不知道MPI对连续数据的情况是否有优化 */ 
 	double *destin = lapack_vec->data+ldd*start[1];
-	CreateMPIDataTypeSubMat(&SUBMAT_TYPE,nrows,ncols,ldd);
+	MPI_Datatype data_type;
+	CreateMPIDataTypeSubMat(&data_type,nrows,ncols,ldd);
 	/* 组间通讯, 将内积广播给 1 组 */
 	if (PASMAT_COMM_COLOR==0&&PASMAT_INTERCOMM!=MPI_COMM_NULL) {
 		int local_rank, root_proc;
@@ -443,16 +439,16 @@ static void PAS_MatDotMultiVec (void *mat, void **x,
 		if (local_rank == 0) root_proc = MPI_ROOT;
 		else root_proc = MPI_PROC_NULL;
 		/* 广播 1 个 SUBMAT_TYPE */
-		MPI_Bcast(destin,1,SUBMAT_TYPE,root_proc,
+		MPI_Bcast(destin,1,data_type,root_proc,
 			PASMAT_INTERCOMM);
 	}
 	if (PASMAT_COMM_COLOR == 1) {
 		int remote_root_proc = 0; /* 发送组在组内的根进程号 */
-		MPI_Bcast(destin,1,SUBMAT_TYPE,remote_root_proc,
+		MPI_Bcast(destin,1,data_type,remote_root_proc,
 			PASMAT_INTERCOMM);
 	}
 	/* 销毁矩阵块类型 */
-	DestroyMPIDataTypeSubMat(&SUBMAT_TYPE);
+	DestroyMPIDataTypeSubMat(&data_type);
 #endif
 	return;
 }
@@ -503,7 +499,8 @@ static void PAS_MultiVecQtAP (char ntsA, char nsdQAP,
 	/* 创建矩阵块类型, 用于MPI通讯 */
 	int nrows = end[0]-start[0], ncols = end[1]-start[1];
 	if (nsdQAP=='D') nrows = 1; 
-	CreateMPIDataTypeSubMat(&SUBMAT_TYPE,nrows,ncols,ldQAP);
+	MPI_Datatype data_type;
+	CreateMPIDataTypeSubMat(&data_type,nrows,ncols,ldQAP);
 	/* 组间通讯, 将内积广播给 1 组 */
 	if (PASMAT_COMM_COLOR==0&&PASMAT_INTERCOMM!=MPI_COMM_NULL) {
 		int local_rank, root_proc;
@@ -511,16 +508,16 @@ static void PAS_MultiVecQtAP (char ntsA, char nsdQAP,
 		if (local_rank == 0) root_proc = MPI_ROOT;
 		else root_proc = MPI_PROC_NULL;
 		/* 广播 1 个 SUBMAT_TYPE */
-		MPI_Bcast(qAp,1,SUBMAT_TYPE,root_proc,
+		MPI_Bcast(qAp,1,data_type,root_proc,
 			PASMAT_INTERCOMM);
 	}
 	if (PASMAT_COMM_COLOR == 1) {
 		int remote_root_proc = 0; /* 发送组在组内的根进程号 */
-		MPI_Bcast(qAp,1,SUBMAT_TYPE,remote_root_proc,
+		MPI_Bcast(qAp,1,data_type,remote_root_proc,
 			PASMAT_INTERCOMM);
 	}
 	/* 销毁矩阵块类型 */
-	DestroyMPIDataTypeSubMat(&SUBMAT_TYPE);
+	DestroyMPIDataTypeSubMat(&data_type);
 #endif
 	return;
 }
