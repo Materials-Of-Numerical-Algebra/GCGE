@@ -4,8 +4,8 @@
 CPP      = g++.exe -D__DEBUG__
 CC       = gcc.exe -D__DEBUG__
 WINDRES  = windres.exe
-OBJ      = main.o get_mat_phg.o mat_convert.o memwatch.o test_app_ccs.o test_app_lapack.o test_app_slepc.o test_eig_sol_gcg.o test_lin_sol.o test_multi_grid.o test_multi_vec.o test_orth.o test_vec.o ../src/ops.o ../src/ops_eig_sol_gcg.o ../src/ops_lin_sol.o ../src/ops_multi_grid.o ../src/ops_multi_vec.o ../src/ops_orth.o ../app/app_ccs.o ../app/app_lapack.o ../app/app_matlab.o ../app/app_pas.o ../app/app_slepc.o ../src/ops_eig_sol_pas.o ../app/app_phg.o ../app/app_hypre.o test_app_phg.o test_app_hypre.o
-LINKOBJ  = main.o get_mat_phg.o mat_convert.o memwatch.o test_app_ccs.o test_app_lapack.o test_app_slepc.o test_eig_sol_gcg.o test_lin_sol.o test_multi_grid.o test_multi_vec.o test_orth.o test_vec.o ../src/ops.o ../src/ops_eig_sol_gcg.o ../src/ops_lin_sol.o ../src/ops_multi_grid.o ../src/ops_multi_vec.o ../src/ops_orth.o ../app/app_ccs.o ../app/app_lapack.o ../app/app_matlab.o ../app/app_pas.o ../app/app_slepc.o ../src/ops_eig_sol_pas.o ../app/app_phg.o ../app/app_hypre.o test_app_phg.o test_app_hypre.o
+OBJ      = main.o get_mat_phg.o mat_convert.o memwatch.o test_app_ccs.o test_app_lapack.o test_app_slepc.o test_eig_sol_gcg.o test_lin_sol.o test_multi_grid.o test_multi_vec.o test_orth.o test_vec.o ../src/ops.o ../src/ops_eig_sol_gcg.o ../src/ops_lin_sol.o ../src/ops_multi_grid.o ../src/ops_multi_vec.o ../src/ops_orth.o ../app/app_ccs.o ../app/app_lapack.o ../app/app_matlab.o ../app/app_pas.o ../app/app_slepc.o ../src/ops_eig_sol_pas.o ../app/app_phg.o ../app/app_hypre.o test_app_phg.o test_app_hypre.o test_eig_sol_pas.o test_app_pas_lapack.o test_app_pas_ccs.o test_app_pas_slepc.o
+LINKOBJ  = main.o get_mat_phg.o mat_convert.o memwatch.o test_app_ccs.o test_app_lapack.o test_app_slepc.o test_eig_sol_gcg.o test_lin_sol.o test_multi_grid.o test_multi_vec.o test_orth.o test_vec.o ../src/ops.o ../src/ops_eig_sol_gcg.o ../src/ops_lin_sol.o ../src/ops_multi_grid.o ../src/ops_multi_vec.o ../src/ops_orth.o ../app/app_ccs.o ../app/app_lapack.o ../app/app_matlab.o ../app/app_pas.o ../app/app_slepc.o ../src/ops_eig_sol_pas.o ../app/app_phg.o ../app/app_hypre.o test_app_phg.o test_app_hypre.o test_eig_sol_pas.o test_app_pas_lapack.o test_app_pas_ccs.o test_app_pas_slepc.o
 LIBS     = -L"C:/Program Files (x86)/Dev-Cpp/MinGW64/lib" -L"C:/Program Files (x86)/Dev-Cpp/MinGW64/x86_64-w64-mingw32/lib" -static-libgcc -fopenmp -fopenmp cbia.lib.blas.dyn.rel.x64.12.dll cbia.lib.lapack.dyn.rel.x64.12.dll -g3
 INCS     = -I"C:/Program Files (x86)/Dev-Cpp/MinGW64/include" -I"C:/Program Files (x86)/Dev-Cpp/MinGW64/x86_64-w64-mingw32/include" -I"C:/Program Files (x86)/Dev-Cpp/MinGW64/lib/gcc/x86_64-w64-mingw32/4.9.2/include" -I"../src" -I"../app"
 CXXINCS  = -I"C:/Program Files (x86)/Dev-Cpp/MinGW64/include" -I"C:/Program Files (x86)/Dev-Cpp/MinGW64/x86_64-w64-mingw32/include" -I"C:/Program Files (x86)/Dev-Cpp/MinGW64/lib/gcc/x86_64-w64-mingw32/4.9.2/include" -I"C:/Program Files (x86)/Dev-Cpp/MinGW64/lib/gcc/x86_64-w64-mingw32/4.9.2/include/c++" -I"../src" -I"../app"
@@ -110,3 +110,15 @@ test_app_phg.o: test_app_phg.c
 
 test_app_hypre.o: test_app_hypre.c
 	$(CC) -c test_app_hypre.c -o test_app_hypre.o $(CFLAGS)
+
+test_eig_sol_pas.o: test_eig_sol_pas.c
+	$(CC) -c test_eig_sol_pas.c -o test_eig_sol_pas.o $(CFLAGS)
+
+test_app_pas_lapack.o: test_app_pas_lapack.c
+	$(CC) -c test_app_pas_lapack.c -o test_app_pas_lapack.o $(CFLAGS)
+
+test_app_pas_ccs.o: test_app_pas_ccs.c
+	$(CC) -c test_app_pas_ccs.c -o test_app_pas_ccs.o $(CFLAGS)
+
+test_app_pas_slepc.o: test_app_pas_slepc.c
+	$(CC) -c test_app_pas_slepc.c -o test_app_pas_slepc.o $(CFLAGS)

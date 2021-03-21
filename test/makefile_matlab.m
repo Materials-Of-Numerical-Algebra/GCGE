@@ -27,15 +27,15 @@ else
     A=A'*A;
     A=sparse(A); B=[];
 end
-nevConv=10; abs_tol=1e-2; rel_tol=1e-8;
-nevMax=2*nevConv; blockSize=10; nevInit=nevMax;
+nev=10; abs_tol=1e-2; rel_tol=1e-8;
+nevMax=2*nev; blockSize=10; nevInit=nevMax;
 numIterMax=100; gapMin=1e-2;
 tic;
-[eval,evec,nevConv] = ...
+[eval,evec,nev] = ...
 app_matlab(A,B,...
-    nevConv,abs_tol,rel_tol,...
+    nev,abs_tol,rel_tol,...
     nevMax,blockSize,nevInit,...
     numIterMax,gapMin);
 toc
-tic;meval=eigs(A,B,nevConv,'smallestabs');toc
-diff = norm(eval(1:nevConv)-meval(1:nevConv))
+tic;meval=eigs(A,B,nev,'smallestabs');toc
+diff = norm(eval(1:nev)-meval(1:nev))

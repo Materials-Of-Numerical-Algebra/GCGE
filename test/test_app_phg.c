@@ -277,7 +277,7 @@ int TestAppPHG(int argc, char *argv[])
 
    //TestMultiVec(matA,ops);
    //TestMultiLinearSolver(matA,ops);
-   //TestOrth(matA,ops);
+   TestOrth(matB,ops);
 
    int flag = 0;
 #if USE_MUMPS
@@ -288,7 +288,7 @@ int TestAppPHG(int argc, char *argv[])
       ops->MultiLinearSolver = MUMPS_MultiLinearSolver;
    }
 #endif
-   TestEigenSolver(matA,matB,flag,argc,argv,ops);
+   //TestEigenSolver(matA,matB,flag,argc,argv,ops);
 #if USE_MUMPS
    if (flag>=1) {
       AppCtxDestroy(&user);

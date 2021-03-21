@@ -84,16 +84,20 @@ CreateMatrixPHG(void **matA, void **matB, void **dofU, void **mapM, void **gridG
 #if 1
 	/* Register GCGE options before phgInit */
 	static int int_tmp; static double dbl_tmp; static char *str_tmp; static BOOLEAN bln_tmp;
+	phgOptionsRegisterString("-eps_type", "str", &str_tmp);
 	phgOptionsRegisterInt   ("-eps_nev" , "int", &int_tmp);
 	phgOptionsRegisterInt   ("-eps_ncv" , "int", &int_tmp);
-	phgOptionsRegisterFloat ("-eps_tol" , "dbl", &dbl_tmp);
-	phgOptionsRegisterString("-eps_type", "str", &str_tmp);
+	phgOptionsRegisterInt   ("-eps_mpd" , "int", &int_tmp);
+	phgOptionsRegisterString("-eps_max_it"  , "int", &int_tmp);
+	phgOptionsRegisterFloat ("-eps_tol"     , "dbl", &dbl_tmp);
 	phgOptionsRegisterNoArg ("-eps_conv_abs", "bln", &bln_tmp);	
 	phgOptionsRegisterNoArg ("-eps_conv_rel", "bln", &bln_tmp);	
+
+	phgOptionsRegisterNoArg ("-eps_monitor"     , "bln", &bln_tmp);	
+	phgOptionsRegisterNoArg ("-eps_monitor_conv", "bln", &bln_tmp);	
 	
 	phgOptionsRegisterInt   ("-eps_lobpcg_blocksize", "int", &int_tmp);
 	phgOptionsRegisterFloat ("-eps_lobpcg_restart"  , "dbl", &dbl_tmp);	
-	phgOptionsRegisterNoArg ("-eps_monitor_conv", "bln", &bln_tmp);	
 		
    	phgOptionsRegisterInt   ("-gcge_max_niter", "int", &int_tmp);
    	phgOptionsRegisterFloat ("-gcge_abs_tol"  , "dbl", &dbl_tmp);
@@ -116,7 +120,7 @@ CreateMatrixPHG(void **matA, void **matB, void **dofU, void **mapM, void **gridG
     //size_t mem, mem_peak;
     int i;
     //int pre_refines = 13;
-    int pre_refines = 1;
+    int pre_refines = 3;
     GRID *g;
     DOF *u_h;
     MAP *map;
@@ -214,7 +218,7 @@ DestroyMatrixPHG(void **matA, void **matB, void **dofU, void **mapM, void **grid
     phgFreeGrid  ((GRID**)gridG);
 
     phgPrintf( "DestroyMatrixPHG\n" );
-    phgFinalize();
+    //phgFinalize();
     return 0;
 }
 

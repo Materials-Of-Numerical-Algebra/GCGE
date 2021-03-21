@@ -22,14 +22,14 @@ int TestMultiVec         (void *mat, struct OPS_ *ops);
 int TestOrth             (void *mat, struct OPS_ *ops);
 int TestLinearSolver     (void *mat, struct OPS_ *ops);
 int TestMultiLinearSolver(void *mat, struct OPS_ *ops);
-int TestEigenSolver      (void *A, void *B, int flag, int argc, char *argv[], struct OPS_ *ops);
+int TestEigenSolverGCG   (void *A, void *B, int flag, int argc, char *argv[], struct OPS_ *ops);
+int TestEigenSolverPAS   (void *A, void *B, int flag, int argc, char *argv[], struct OPS_ *ops);
 int TestMultiGrid        (void *A, void *B, struct OPS_ *ops);
 
 /* test EPS in SLEPc */
 int TestEPS(void *A, void *B, int flag, int argc, char *argv[], struct OPS_ *ops);
 
-#define TEST_PAS     0
-#define USE_PHG_MAT  0
+#define USE_PHG_MAT  1
 #define USE_FILE_MAT 0
 
 #if USE_SLEPC
@@ -40,7 +40,7 @@ int  CreateMatrixPHG (void **matA, void **matB, void **dofU, void **mapM, void *
 int  DestroyMatrixPHG(void **matA, void **matB, void **dofU, void **mapM, void **gridG, int argc, char *argv[]);
 
 static char help[] = "Test App of SLEPC.\n";
-void GetPetscMat(Mat *A, Mat *B, PetscInt n, PetscInt m);
+static void GetPetscMat(Mat *A, Mat *B, PetscInt n, PetscInt m);
 int TestAppSLEPC(int argc, char *argv[]) 
 {
 	
@@ -54,12 +54,7 @@ int TestAppSLEPC(int argc, char *argv[])
 	OPS_SLEPC_Set (slepc_ops);
 	OPS_Setup (slepc_ops);
 	slepc_ops->Printf("%s", help);
-#if TEST_PAS	
-	OPS *pas_ops = NULL;
-	OPS_Create (&pas_ops);
-	OPS_PAS_Set (pas_ops,slepc_ops);
-	OPS_Setup (pas_ops);
-#endif	
+	
 	void *matA, *matB; OPS *ops;
 
 	/* 得到PETSC矩阵A, B, 规模为n*m */
@@ -127,65 +122,11 @@ int TestAppSLEPC(int argc, char *argv[])
 
 	//slepc_ops->MatView((void*)slepc_matA, slepc_ops);
 	//slepc_ops->MatView((void*)slepc_matB, slepc_ops);
-#if TEST_PAS	
-	BV slepc_vec;
-	{
-	   Vec vector;
-	   MatCreateVecs(slepc_matA,NULL,&vector);
-	   BVCreate(PETSC_COMM_WORLD, &slepc_vec);
-	   BVSetType(slepc_vec,BVMAT);
-	   BVSetSizesFromVec(slepc_vec,vector,n*m);
-	   VecDestroy(&vector);
-	}
-	PetscInt local_nrows, global_nrows;
-	BVGetSizes(slepc_vec,&local_nrows,&global_nrows,&ncols);
-	BVSetActiveColumns(slepc_vec,0,ncols);
-	BVSetRandom(slepc_vec);	
-	//slepc_ops->MultiVecView((void**)slepc_vec,0,ncols,slepc_ops);
 
-	LAPACKMAT lapack_matA; 
-	lapack_matA.nrows = ncols; lapack_matA.ncols = ncols; lapack_matA.ldd = ncols;
-	lapack_matA.data  = malloc(ncols*ncols*sizeof(double));
-	int rwo, col;
-	for (col = 0; col < ncols; ++col) {
-		for (row = 0; row < ncols; ++row) {			
-			if (row == col) lapack_matA.data[row+ncols*col] = 2.0;
-			else if (row-col == 1) lapack_matA.data[row+ncols*col] = -1.0;
-			else if (row-col ==-1) lapack_matA.data[row+ncols*col] = -1.0;
-			else lapack_matA.data[row+ncols*col] = 0.0;
-		}			
-	}
-	LAPACKMAT lapack_matB;
-	lapack_matB.nrows = ncols; lapack_matB.ncols = ncols; lapack_matB.ldd = ncols;
-	lapack_matB.data  = malloc(ncols*ncols*sizeof(double));
-	for (col = 0; col < ncols; ++col) {		
-		for (row = 0; row < ncols; ++row) {
-			if (row == col) lapack_matB.data[row+ncols*row] = 1.0;
-			else lapack_matB.data[col+ncols*row] = 0.0;
-		}
-	}
-	
-	PASMAT pas_matA, pas_matB; 
-	pas_matA.level_aux = 0; pas_matA.num_levels = 1;
-	pas_matA.QQ = malloc(sizeof(void*));
-	pas_matA.QX = malloc(sizeof(void**)); 
-	pas_matA.XX    = (void*)&lapack_matA;
-	pas_matA.QQ[0] = (void*)slepc_matA;
-	pas_matA.QX[0] = (void**)slepc_vec;
-	pas_matB.level_aux = 0; pas_matB.num_levels = 1;
-	pas_matB.QQ = malloc(sizeof(void*));
-	pas_matB.QX = malloc(sizeof(void**)); 
-	pas_matB.XX    = (void*)&lapack_matB;
-	pas_matB.QQ[0] = (void*)slepc_matB;
-	pas_matB.QX[0] = (void**)slepc_vec;
-#endif
 	//pas_ops->MatView((void*)&pas_matA,pas_ops);
 	//pas_ops->MatView((void*)&pas_matB,pas_ops);
-#if TEST_PAS
-	ops = pas_ops; matA = &pas_matA; matB = &pas_matB;
-#else
+
 	ops = slepc_ops; matA = (void*)(slepc_matA); matB = (void*)(slepc_matB);
-#endif
 	
 	//TestMultiVec(matA,ops);
 	//TestMultiLinearSolver(matA,ops);
@@ -194,27 +135,18 @@ int TestAppSLEPC(int argc, char *argv[])
 	PetscOptionsGetInt(NULL,NULL,"-use_slepc_eps",&use_slepc_eps,&flg);
 	if (use_slepc_eps)
 		TestEPS(matA,matB,use_slepc_eps,argc,argv,ops);
-	else 
-		TestEigenSolver(matA,matB,0,argc,argv,ops);
+	else {
+		//TestEigenSolverGCG(matA,matB,0,argc,argv,ops);
+		TestEigenSolverPAS(matA,matB,0,argc,argv,ops);	
+	}
+		
 	//TestMultiGrid(matA,matB,ops);
- #if TEST_PAS
-	free(lapack_matA.data); lapack_matA.data = NULL;
-	free(lapack_matB.data); lapack_matB.data = NULL;
 
- 	free(pas_matA.QQ); pas_matA.QQ = NULL;
- 	free(pas_matA.QX); pas_matA.QX = NULL;
- 	free(pas_matB.QQ); pas_matB.QQ = NULL;
- 	free(pas_matB.QX); pas_matB.QX = NULL;
-   	BVDestroy(&slepc_vec);
- #endif	
 	/* 销毁petsc矩阵 */
    	MatDestroy(&slepc_matA);
    	MatDestroy(&slepc_matB);
 	
 	OPS_Destroy (&slepc_ops);
-#if TEST_PAS
-	OPS_Destroy (&pas_ops);
-#endif
 
 	SlepcFinalize();
 	
@@ -222,7 +154,7 @@ int TestAppSLEPC(int argc, char *argv[])
 }
 
 /* 创建 2-D possion 差分矩阵 A B */
-void GetPetscMat(Mat *A, Mat *B, PetscInt n, PetscInt m)
+static void GetPetscMat(Mat *A, Mat *B, PetscInt n, PetscInt m)
 {
     assert(n==m);
     PetscInt N = n*m;
@@ -327,12 +259,13 @@ int TestEPS(void *A, void *B, int flag, int argc, char *argv[], struct OPS_ *ops
 	PetscPrintf(PETSC_COMM_WORLD," Number of requested eigenvalues: %D\n",nev);
 	PetscPrintf(PETSC_COMM_WORLD," Number of converged eigenpairs: %D\n\n",nconv);
 	PetscPrintf(PETSC_COMM_WORLD," Number of iterations of the method: %D\n",its);
+#if 0
 	int i; PetscScalar eigr;
 	for (i = 0; i < nconv; ++i) {
 		EPSGetEigenvalue(eps,i,&eigr,NULL);
 		PetscPrintf(PETSC_COMM_WORLD,"%d: %6.14e\n",1+i,eigr);
 	}
-#if 1
+#else
 	PetscViewerPushFormat(PETSC_VIEWER_STDOUT_WORLD,PETSC_VIEWER_ASCII_INFO_DETAIL);
 	//EPSConvergedReasonView(eps,PETSC_VIEWER_STDOUT_WORLD);
 	EPSErrorView(eps,EPS_ERROR_ABSOLUTE,PETSC_VIEWER_STDOUT_WORLD);

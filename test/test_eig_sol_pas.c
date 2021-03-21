@@ -21,70 +21,76 @@
 #include    "ops_eig_sol_pas.h"
 #include    "app_lapack.h"
 
-
 #define DEBUG   0
-#define USE_PAS 0
 #define USE_AMG 0
+#define USE_PAS 1
 
-int TestEigenSolver(void *A, void *B, int argc, char *argv[], struct OPS_ *ops) 
+int TestEigenSolverPAS(void *A, void *B, int flag, int argc, char *argv[], struct OPS_ *ops) 
 {
-	double *eval, *dbl_ws; int *int_ws;
-	void   **evec;
-#if DEBUG 
-	int    nevMax = 1, multiMax = 2, block_size = 2;
-	//int    nevMax = 100, multiMax = 30, block_size = 30;
-#else
-	//int    nevMax = 10, multiMax = 5, block_size = 3;
-	//int    nevMax = 1200, multiMax = 120, block_size = 240;
-	int    nevMax = 10000, multiMax = 400, block_size = 200;
-	//int    nevMax = 600, multiMax = 120, block_size = 120;
-	//int    nevMax = 300, multiMax = 120, block_size = 60;
-	//int    nevMax = 150, multiMax = 120, block_size = 30;
-	//int    nevMax = 75, multiMax = 75, block_size = 15;
-	//int    nevMax = 100, multiMax = 100, block_size = 50;
-	//int    nevMax = 100, multiMax = 16, block_size = 16;
-#endif
-	double gapMin = 1e-5;
-	int    nevGiven, nevConv0, nevConv, sizeX, sizeV, idx; 
-	//sizeX = nevMax + multiMax;
-	sizeX = 2*block_size + multiMax;
-	sizeV = sizeX + 2*block_size;
-#if USE_PAS
-	int length_dbl_ws = 5*sizeX*sizeX+sizeX*sizeV+2*sizeV*sizeV+sizeV*sizeV/2+11*sizeV;
-#else
-#if DEBUG 
-	int length_dbl_ws = 2*sizeV*sizeV+11*sizeV+2*sizeV*sizeV;
-#else
-	int length_dbl_ws = 2*sizeV*sizeV+10*sizeV+(nevMax+multiMax+2*block_size)+(nevMax+multiMax)*block_size;
-	ops->Printf ( "length_dbl_ws = %d\n", length_dbl_ws );
-#endif
-#endif
-	int length_int_ws = 6*sizeV+2*(block_size+2);
+	int nevConv = 50, multiMax = 1; double gapMin = 1e-5;
+	int nevGiven = 0, block_size = nevConv/5, nevMax = 2*nevConv;
+	int nevInit  = nevMax;
+	int    max_iter_pas = 100, max_iter_rr = 100, block_size_rr = block_size;
+	double tol_pas[2] = {1e-1,1e-3}, tol_rr[3] = {1e-1,1e-8};
+	int    nevInc, max_iter_gcg = 10000;
+	double tol_gcg[2] = {1e-1,1e-8};
+
+	double *eval; void   **evec;
+	eval = malloc(nevMax*sizeof(double));
+	memset(eval,0,nevMax*sizeof(double));
+	ops->MultiVecCreateByMat(&evec,nevMax,A,ops);
+
+	double *dbl_ws; int *int_ws; 
+	int sizeX = nevMax, sizeV = sizeX + 2*block_size;
+	/* 工作空间 应该有所改进 未考虑 shift 机制 */
+	int length_dbl_ws = 5*sizeX*sizeX+sizeX*sizeV
+		+2*sizeV*sizeV+11*sizeV+sizeX*block_size_rr;
+	int length_int_ws = 6*sizeV+2*(block_size_rr+2);
 	dbl_ws = malloc(length_dbl_ws*sizeof(double));
-	int_ws = malloc(length_int_ws*sizeof(double));
 	memset(dbl_ws,0,length_dbl_ws*sizeof(double));
+	int_ws = malloc(length_int_ws*sizeof(int));
 	memset(int_ws,0,length_int_ws*sizeof(int));
 	srand(0);
 
-	sizeX = nevMax + multiMax;
-	sizeV = sizeX + 2*block_size;
-#if USE_PAS
-	int    max_iter_pas = 2, max_iter_rr = 2, block_size_rr = block_size;
-	double tol_pas[2] = {1e-1,1e-1}, tol_rr[3] = {1e-1,1e-1};
-#endif
-	int    nevInc, max_iter_gcg = 10000;
-	double tol_gcg[2] = {1e-12,1e-1};
-	//double tol_gcg[2] = {1e-4,1e-1};
-
-	//ops->Printf("mat A:\n");
-	//ops->MatView(A,ops);
-	//if (B!=NULL) {
-	//	ops->Printf("mat B:\n");
-	//	ops->MatView(B,ops);
-	//}
-	eval   = malloc((nevMax+multiMax)*sizeof(double));
-	memset(eval  ,0,(nevMax+multiMax)*sizeof(double));
-	ops->MultiVecCreateByMat(&evec,(nevMax+multiMax),A,ops);
+	int idx; 
+	/* AMG 做为线性解法器的 GCG */
+	void   **A_array, **B_array, **P_array; 
+	int    level, num_levels = 4;
+	ops->MultiGridCreate (&A_array,&B_array,&P_array,&num_levels,A,B,ops);
+	--num_levels;	
+	/* amg_(rate/tol)[num_levels] 表示 V cycle 
+	 * 在 num_levels 层上 CG 迭代的参数
+	 * amg_max_iter[2*num_levels+1,2*num_levels+2] 表示 V cycle 
+	 * 在 num_levels 层上前后光滑次数
+	 * amg_(max_iter/rate/tol)[0] 表示 V cycle 
+	 * 本身的参数 */
+	int    amg_max_iter[12] = {3   , 40,40, 40,40, 40,40, 40,40, 40,40,  40};
+	double amg_rate[6]      = {1e-2, 1e-16, 1e-16, 1e-16, 1e-16, 1e-16};
+	double amg_tol[6]       = {1e-8, 1e-16, 1e-16, 1e-16, 1e-16, 1e-16}; 
+	void   ***amg_mv_ws[7];
+	/* 一定是从后面取, 因为 前面部分会在特征值计算中用到, 不能随意更改 */ 
+	/* 只需 6*sizeX 长  */
+	double *amg_dbl_ws = dbl_ws+length_dbl_ws-(6*sizeX);
+	/* 只需 1.5*sizeX+2 */
+	int    *amg_int_ws = int_ws+length_int_ws-(sizeX+sizeX/2+2);
+	/* 非调试情形, amg_mv_ws : 0 1 2 3 4 5 sizeX, 6 sizeV */	
+	for (idx = 0; idx < 7; ++idx) {
+		amg_mv_ws[idx] = malloc(num_levels*sizeof(void**));
+		for (level = 0; level < num_levels; ++level) {
+			if (idx < 6) {
+			   	ops->MultiVecCreateByMat(&(amg_mv_ws[idx][level]),
+			   	 	sizeX,A_array[level],ops);
+			   	ops->MultiVecSetRandomValue(amg_mv_ws[idx][level],0,
+				   	sizeX,ops);
+			}
+			else {
+				ops->MultiVecCreateByMat(&(amg_mv_ws[idx][level]),
+					sizeV,A_array[level],ops);
+				ops->MultiVecSetRandomValue(amg_mv_ws[idx][level],0,
+					sizeV,ops);
+			}
+		}
+	}
 
 	double time_start, time_interval;
 #if USE_MPI
@@ -93,112 +99,71 @@ int TestEigenSolver(void *A, void *B, int argc, char *argv[], struct OPS_ *ops)
 	time_start = clock();
 #endif
 
-#if USE_AMG
-	/* AMG 做为线性解法器的 GCG */
-	void   **A_array, **B_array, **P_array; 
-	int    level, num_levels = 3; 
-	ops->MultiGridCreate (&A_array,&B_array,&P_array,&num_levels,A,B,ops);
-	--num_levels;	
-	//int    amg_max_iter[8] = {2,10,10,20,20,40,40,60};
-	int    amg_max_iter[12] = {1,5,5,4,4,4,4,4,4,4,4,4};
-	   //10,10,20,20,30,30,40,40,50,50,60};
-	/* tol[num_levels] 表示 V cycle 的停止准则, 绝对残量 */ 
-	double amg_rate[6] = {1e-2,1e-16,1e-16,1e-16,1e-16,1e-16};
-	double amg_tol[6]  = {1e-8,1e-16,1e-16,1e-16,1e-16,1e-16}; 
-	void   ***amg_mv_ws[7];
-	double *amg_dbl_ws = dbl_ws+length_dbl_ws-6*sizeX;
-	int    *amg_int_ws = int_ws;
-	/* 非调试情形, amg_mv_ws : 0 1 2 3 4 5 sizeX, 6 sizeV */	
-	for (idx = 0; idx < 7; ++idx) {
-		amg_mv_ws[idx] = malloc(num_levels*sizeof(void**));
-		for (level = 0; level < num_levels; ++level) {
-			if (idx < 6) {
-#if DEBUG
-			   	ops->MultiVecCreateByMat(&(amg_mv_ws[idx][level]),
-				 	sizeV,A_array[level],ops);				
-			   	ops->MultiVecSetRandomValue(amg_mv_ws[idx][level],0,sizeV,ops);
-#else
-			   	ops->MultiVecCreateByMat(&(amg_mv_ws[idx][level]),
-			   	 	sizeX,A_array[level],ops);				
-			   	ops->MultiVecSetRandomValue(amg_mv_ws[idx][level],0,
-				   	sizeX,ops);
-#endif
-			}
-			else {
-			   ops->MultiVecCreateByMat(&(amg_mv_ws[idx][level]),
-				 sizeV,A_array[level],ops);				
-			   ops->MultiVecSetRandomValue(amg_mv_ws[idx][level],0,sizeV,ops);
-			}
-		}
-	}
-
-#endif
-	
 #if USE_PAS
 	ops->Printf("===============================================\n");
 	ops->Printf("PAS Eigen Solver as preconditioner\n");
 	//EigenSolverSetup_PAS(sizeX-3*multiMax/4,3*multiMax/4,gapMin,nevMax,tol_pas,max_iter_pas,
-	EigenSolverSetup_PAS(nevMax,multiMax,gapMin,
-		sizeX,tol_pas,max_iter_pas,	
-		block_size_rr,tol_rr,max_iter_rr,
+	EigenSolverSetup_PAS(multiMax,gapMin,nevMax,
+		block_size   ,tol_pas,max_iter_pas,	
+		block_size_rr,tol_rr ,max_iter_rr ,
 		A_array,B_array,P_array,num_levels,
 		amg_mv_ws,dbl_ws,int_ws,ops);
-	nevGiven = 0; nevConv = nevMax;
-	//nevGiven = 0; nevConv = sizeX-3*multiMax/4;
-	ops->EigenSolver(A,B,eval,evec,nevGiven,&nevConv,ops);
+	/* nevGiven 做为临时变量, 记录要计算的特征对个数 */
+	nevGiven = nevConv;
+	ops->EigenSolver(A,B,eval,evec,nevGiven,&nevGiven,ops);
+#endif 
 
 #if USE_MPI
 	time_interval = MPI_Wtime() - time_start;
 	ops->Printf("Time is %.3f\n", time_interval);
 	time_start    = MPI_Wtime();
 #else
-        time_interval = clock()-time_start;
+    time_interval = clock()-time_start;
 	ops->Printf("Time is %.3f\n", (double)(time_interval)/CLOCKS_PER_SEC);
 	time_start    = clock();
 #endif
 
-#endif
-
+	/* 以 PAS 得到的特征对为初值 重新调用 GCG */
 	void **gcg_mv_ws[4];
+	gcg_mv_ws[0] = amg_mv_ws[6][0]; /* sizeV */
+	gcg_mv_ws[1] = amg_mv_ws[3][0]; /* block_size */
+	gcg_mv_ws[2] = amg_mv_ws[4][0]; /* block_size */
+	gcg_mv_ws[3] = amg_mv_ws[5][0]; /* block_size */
 		
 #if USE_AMG
 	/* TODO: 工作空间如何排布, 是个问题 */
 	MultiLinearSolverSetup_BlockAMG(amg_max_iter, amg_rate, amg_tol,
 		"abs", A_array, P_array, num_levels, 
 		amg_mv_ws, amg_dbl_ws, amg_int_ws, NULL, ops);
-	gcg_mv_ws[0] = amg_mv_ws[6][0]; /* sizeV */
-	gcg_mv_ws[1] = amg_mv_ws[3][0]; /* block_size */
-	gcg_mv_ws[2] = amg_mv_ws[4][0]; /* block_size */
-	gcg_mv_ws[3] = amg_mv_ws[5][0]; /* block_size */
-#else
-	EigenSolverCreateWorkspace_GCG(sizeX,block_size,A,gcg_mv_ws,NULL,NULL,ops);	
 #endif	
-	//nevInit = 25;
+
 	ops->Printf("===============================================\n");
-	ops->Printf("GCG Eigen Solver\n");
-	EigenSolverSetup_GCG(nevMax,multiMax,gapMin,block_size,
+	ops->Printf("GCG Eigen Solver\n");	
+		/* 设定 ops 中的特征值求解器是 GCG */
+	EigenSolverSetup_GCG(multiMax,gapMin,nevInit,nevMax,block_size,
 		tol_gcg,max_iter_gcg,USE_AMG,gcg_mv_ws,dbl_ws,int_ws,ops);
 	
-	int    check_conv_max_num    = 600;
+	/* 展示算法所有参数 */
+	int    check_conv_max_num    = 50   ;
 		
-	const char *initX_orth_method = "bgs"; 
-	int    initX_orth_block_size = 200 ; 
-	int    initX_orth_max_reorth = 3   ; double initX_orth_zero_tol   = DBL_EPSILON;
-	//int    initX_orth_max_reorth = 2   ; double initX_orth_zero_tol   = 1e-14;
+	char   initX_orth_method[8]  = "mgs"; 
+	int    initX_orth_block_size = -1   ; 
+	int    initX_orth_max_reorth = 2    ; double initX_orth_zero_tol    = 2*DBL_EPSILON;//1e-12
 	
-	const char *compP_orth_method = "mgs"; 
-	int    compP_orth_block_size = -1  ; 
-	int    compP_orth_max_reorth = 3   ; double compP_orth_zero_tol   = DBL_EPSILON;
+	char   compP_orth_method[8]  = "mgs"; 
+	int    compP_orth_block_size = -1   ; 
+	int    compP_orth_max_reorth = 2    ; double compP_orth_zero_tol    = 2*DBL_EPSILON;//1e-12
 	
-	const char *compW_orth_method = "mgs";
-	int    compW_orth_block_size = -1  ; 	
-	int    compW_orth_max_reorth = 3   ; double compW_orth_zero_tol   = DBL_EPSILON;
-	int    compW_bpcg_max_iter   = 10  ; double compW_bpcg_rate       = 1e-6; 
-	double compW_bpcg_tol        = 1e-26; const char *compW_bpcg_tol_type = "abs";
+	char   compW_orth_method[8]  = "mgs";
+	int    compW_orth_block_size = -1   ; 	
+	int    compW_orth_max_reorth = 2    ;  double compW_orth_zero_tol   = 2*DBL_EPSILON;//1e-12
+	int    compW_bpcg_max_iter   = 30   ;  double compW_bpcg_rate       = 1e-2; 
+	double compW_bpcg_tol        = 1e-12;  char   compW_bpcg_tol_type[8] = "abs";
 	
-	int    compRR_min_num        = -1  ; double compRR_min_gap        = gapMin; 
-	double compRR_tol            = DBL_EPSILON;
+	int    compRR_min_num        = -1   ;  double compRR_min_gap        = gapMin;
+	double compRR_tol            = 2*DBL_EPSILON;
 			
+	/* 设定 GCG 的算法参数 */
 	EigenSolverSetParameters_GCG(
 			check_conv_max_num   ,
 			initX_orth_method    , initX_orth_block_size, 
@@ -212,31 +177,22 @@ int TestEigenSolver(void *A, void *B, int argc, char *argv[], struct OPS_ *ops)
 			compRR_min_num       , compRR_min_gap,
 			compRR_tol           ,  
 			ops);		
-		
-		
+
+	/* 命令行获取 GCG 的算法参数 勿用 有 BUG, 
+	 * 不应该改变 nevMax nevInit block_size, 这些与工作空间有关 */
 #if USE_PAS
-	nevGiven = sizeX; 
+	nevGiven = nevMax;
 #else
 	nevGiven = 0; 
 #endif
-	nevInc = nevMax; nevConv = 0; nevConv0 = 0;
-
-	/* nevInc每次迭代增长的特征值个数需大于最大重数 */
-	nevInc = nevInc>multiMax?nevInc:multiMax; 
 	EigenSolverSetParametersFromCommandLine_GCG(argc,argv,ops);
-	do {
-		/* 用户希望收敛的特征对个数 */ 
-		nevConv0 = nevMax<(nevConv+nevInc)?nevMax:(nevConv+nevInc);
-		nevConv  = nevConv0;
-		ops->Printf("nevGiven = %d, nevConv = %d\n",nevGiven,nevConv);
-		ops->EigenSolver(A,B,eval,evec,nevGiven,&nevConv,ops);
-		ops->Printf("numIter = %d\n",((GCGSolver*)ops->eigen_solver_workspace)->numIter);
-		ops->Printf("++++++++++++++++++++++++++++++++++++++++++++++\n");
-		nevGiven = nevConv0+multiMax;
-	//} while (nevConv < nevMax);
-	} while (0);
-
-
+	ops->Printf("nevGiven = %d, nevConv = %d, nevMax = %d, block_size = %d, nevInit = %d\n",
+			nevGiven,nevConv,nevMax,block_size,nevInit);
+	ops->EigenSolver(A,B,eval,evec,nevGiven,&nevConv,ops);
+	ops->Printf("numIter = %d, nevConv = %d\n",
+			((GCGSolver*)ops->eigen_solver_workspace)->numIter, nevConv);
+	ops->Printf("++++++++++++++++++++++++++++++++++++++++++++++\n");
+	
 #if USE_MPI
     time_interval = MPI_Wtime() - time_start;
 	ops->Printf("Time is %.3f\n", time_interval);
@@ -246,24 +202,23 @@ int TestEigenSolver(void *A, void *B, int argc, char *argv[], struct OPS_ *ops)
 #endif
 	
 
-#if USE_AMG
 	for (idx = 0; idx < 7; ++idx) {		
 		for (level = 0; level < num_levels; ++level) {
-			ops->MultiVecDestroy(&(amg_mv_ws[idx][level]),sizeV,ops);
+			if (idx < 6)
+				ops->MultiVecDestroy(&(amg_mv_ws[idx][level]),sizeX,ops);
+			else
+				ops->MultiVecDestroy(&(amg_mv_ws[idx][level]),sizeV,ops);
 		}
 		free(amg_mv_ws[idx]);
 	}
 	ops->Printf("MultiGridDestroy\n");
 	++num_levels;
 	ops->MultiGridDestroy(&A_array,&B_array,&P_array,&num_levels,ops);
-#else	
-	EigenSolverDestroyWorkspace_GCG(sizeX,block_size,A,gcg_mv_ws,NULL,NULL,ops);		
-#endif
 
 	/* eigenvalues */
 	ops->Printf("eigenvalues\n");
 	for (idx = 0; idx < nevConv; ++idx) {
-		ops->Printf("%6.14e\n",eval[idx]);
+		ops->Printf("%d: %6.14e\n",idx+1,eval[idx]);
 	}
 	ops->Printf("eigenvectors\n");
 	//ops->MultiVecView(evec,0,nevConv,ops);

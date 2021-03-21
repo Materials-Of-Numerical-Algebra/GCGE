@@ -25,12 +25,12 @@
 /* flag == 0 表示不使用外部多向量线性求解器 
  * flag == 1 表示仅使用外部多向量线性求解器 
  * flag == 2 表示以外部多向量线性求解器为预条件子 */
-int TestEigenSolver(void *A, void *B, int flag, int argc, char *argv[], struct OPS_ *ops) 
+int TestEigenSolverGCG(void *A, void *B, int flag, int argc, char *argv[], struct OPS_ *ops) 
 {
 	/* 展示算法调用参数 */
 	/* 用户希望收敛的特征对个数 nevConv, 最多返回 nevMax 
 	 * 要求 block_size >= multiMax */ 
-	int nevConv  = 100, multiMax = 1; double gapMin = 1e-5;
+	int nevConv  = 10, multiMax = 1; double gapMin = 1e-5;
 	int nevGiven = 0, block_size = nevConv/5, nevMax = 2*nevConv;
 	/* 当特征值收敛 2*block_size 时, 将 P W 部分归入 X 部分, 
 	 * 工作空间中的 X 不超过 nevInit (>=3*block_size) */
@@ -72,8 +72,8 @@ int TestEigenSolver(void *A, void *B, int flag, int argc, char *argv[], struct O
 	int length_int_ws = 6*sizeV+2*(block_size+2);
 	ops->Printf ( "length_int_ws = %d\n", length_int_ws );
 	dbl_ws = malloc(length_dbl_ws*sizeof(double));
-	int_ws = malloc(length_int_ws*sizeof(double));
 	memset(dbl_ws,0,length_dbl_ws*sizeof(double));
+	int_ws = malloc(length_int_ws*sizeof(int));
 	memset(int_ws,0,length_int_ws*sizeof(int));
 	/* 上述部分将被全封存在 EigenSolverCreateWorkspace_GCG */
 
@@ -88,6 +88,8 @@ int TestEigenSolver(void *A, void *B, int flag, int argc, char *argv[], struct O
 	double time_start, time_interval;
 #if USE_MPI
 	time_start = MPI_Wtime();
+#elif USE_OMP
+	time_start = omp_get_wtime();
 #else
 	time_start = clock();
 #endif
@@ -101,22 +103,22 @@ int TestEigenSolver(void *A, void *B, int flag, int argc, char *argv[], struct O
 	/* 展示算法所有参数 */
 	int    check_conv_max_num    = 50   ;
 		
-	char   initX_orth_method[8]   = "mgs"; 
+	char   initX_orth_method[8]  = "mgs"; 
 	int    initX_orth_block_size = -1   ; 
-	int    initX_orth_max_reorth = 2    ; double initX_orth_zero_tol    = 1e-14;
+	int    initX_orth_max_reorth = 2    ; double initX_orth_zero_tol    = 2*DBL_EPSILON;//1e-12
 	
-	char   compP_orth_method[8]   = "mgs"; 
+	char   compP_orth_method[8]  = "mgs"; 
 	int    compP_orth_block_size = -1   ; 
-	int    compP_orth_max_reorth = 2    ; double compP_orth_zero_tol    = 1e-14;
+	int    compP_orth_max_reorth = 2    ; double compP_orth_zero_tol    = 2*DBL_EPSILON;//1e-12
 	
-	char   compW_orth_method[8]   = "mgs";
+	char   compW_orth_method[8]  = "mgs";
 	int    compW_orth_block_size = -1   ; 	
-	int    compW_orth_max_reorth = 2    ;  double compW_orth_zero_tol   = 1e-14;
-	int    compW_bpcg_max_iter   = 10   ;  double compW_bpcg_rate       = 1e-2 ; 
-	double compW_bpcg_tol        = 1e-19;  char   compW_bpcg_tol_type[8] = "abs";
+	int    compW_orth_max_reorth = 2    ;  double compW_orth_zero_tol   = 2*DBL_EPSILON;//1e-12
+	int    compW_bpcg_max_iter   = 30   ;  double compW_bpcg_rate       = 1e-2; 
+	double compW_bpcg_tol        = 1e-12;  char   compW_bpcg_tol_type[8] = "abs";
 	
 	int    compRR_min_num        = -1   ;  double compRR_min_gap        = gapMin;
-	double compRR_tol            = 1e-16;
+	double compRR_tol            = 2*DBL_EPSILON;
 			
 	/* 设定 GCG 的算法参数 */
 	EigenSolverSetParameters_GCG(
@@ -144,10 +146,13 @@ int TestEigenSolver(void *A, void *B, int flag, int argc, char *argv[], struct O
 	ops->Printf("++++++++++++++++++++++++++++++++++++++++++++++\n");
 
 #if USE_MPI
-    time_interval = MPI_Wtime() - time_start;
+	time_interval = MPI_Wtime() - time_start;
+	ops->Printf("Time is %.3f\n", time_interval);
+#elif USE_OMP
+	time_interval = omp_get_wtime() - time_start;
 	ops->Printf("Time is %.3f\n", time_interval);
 #else
-    time_interval = clock()-time_start;
+	time_interval = clock() - time_start;
 	ops->Printf("Time is %.3f\n", (double)(time_interval)/CLOCKS_PER_SEC);
 #endif
 

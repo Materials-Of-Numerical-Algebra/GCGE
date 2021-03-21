@@ -20,47 +20,47 @@
 
 int TestOrth(void *mat, struct OPS_ *ops) 
 {
-	double dense_mat[256], inner_prod[64], *dbl_ws;
+	double dense_mat[1024], inner_prod[1024], *dbl_ws;
 	
-	int nrows, ncols, ldm, start_dm, end_dm, length, int_ws[16];
+	int nrows, ncols, ldm, start_dm, end_dm, length, int_ws[256];
 	int start[2], end[2], row, col, idx;
 	void **multi_vec[2] = {NULL,NULL}, *B;
 	
-	memset(dense_mat,0,256*sizeof(double));
-	memset(inner_prod,0,64*sizeof(double));
-	memset(int_ws,0,16*sizeof(int));
+	memset(dense_mat,0,1024*sizeof(double));
+	memset(inner_prod,0,1024*sizeof(double));
+	memset(int_ws,0,256*sizeof(int));
 	
 	srand(0);
 
 	ops->Printf("Modified Gram-Schmidt\n");
 	ops->Printf("mat B:\n");
-	ops->MatView(mat,ops);
-	int num_vec = 5;
+	//ops->MatView(mat,ops);
+	int num_vec = 10;
 	for (idx = 0; idx < 2; ++idx) {
 		ops->MultiVecCreateByMat(&(multi_vec[idx]),num_vec,mat,ops);
 		ops->MultiVecSetRandomValue(multi_vec[idx],0,num_vec,ops);
 	}
 	
-	start[0] = 0; end[0] = 2;
-	start[1] = 2; end[1] = 4;
+	start[0] = 0; end[0] = 5;
+	start[1] = 5; end[1] = 10;
 	ops->MultiVecAxpby(1.0,multi_vec[0],0.0,multi_vec[0],start,end,ops);
 	//((LAPACKVEC*)multi_vec[0])->data[0] = 1.0;
 	//((LAPACKVEC*)multi_vec[0])->data[1] = 0.0;
 	//((LAPACKVEC*)multi_vec[0])->data[2] = 0.0;
 	ops->Printf("multi vec x:\n");
-	ops->MultiVecView(multi_vec[0],0,num_vec,ops);
-	int block_size = 1;
-	MultiVecOrthSetup_ModifiedGramSchmidt(block_size,2,1e-12,
-			multi_vec[1],dense_mat,ops);
-	//MultiVecOrthSetup_BinaryGramSchmidt(block_size,2,1e-12,
+	//ops->MultiVecView(multi_vec[0],0,num_vec,ops);
+	int block_size = 8;
+	//MultiVecOrthSetup_ModifiedGramSchmidt(block_size,2,1e-8,
 	//		multi_vec[1],dense_mat,ops);
+	MultiVecOrthSetup_BinaryGramSchmidt(block_size,5,1e-8,
+			multi_vec[1],dense_mat,ops);
 	start[0] = 0; end[0] = num_vec; B = mat;
 	ops->Printf("start = %d, end = %d\n",start[0],end[0]);
 	ops->MultiVecOrth(multi_vec[0],start[0],&(end[0]),B,ops);
 	//ops->MultiVecOrth(multi_vec[0],start[0],&(end[0]),B,ops);
 	ops->Printf("start = %d, end = %d\n",start[0],end[0]);
 	ops->Printf("multi vec x (orth):\n");
-	ops->MultiVecView(multi_vec[0],0,num_vec,ops);
+	//ops->MultiVecView(multi_vec[0],0,num_vec,ops);
 	ops->Printf("x^t B x = \n");
 	start[0] = 0; end[0] = num_vec;
 	start[1] = 0; end[1] = num_vec;

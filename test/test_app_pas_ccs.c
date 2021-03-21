@@ -19,71 +19,15 @@
 #include "app_pas.h"
 
 
-int TestVec              (void *mat, struct OPS_ *ops);
 int TestMultiVec         (void *mat, struct OPS_ *ops);
 int TestOrth             (void *mat, struct OPS_ *ops);
-int TestLinearSolver     (void *mat, struct OPS_ *ops);
 int TestMultiLinearSolver(void *mat, struct OPS_ *ops);
-int TestEigenSolver      (void *A, void *B, int flag, int argc, char *argv[], struct OPS_ *ops);
-int TestEigenSolverPAS   (void *A, void *B, int flag, int argc, char *argv[], struct OPS_ *ops);
-int TestMultiGrid        (void *A, void *B, struct OPS_ *ops);
-
+int TestEigenSolverGCG   (void *A, void *B, int flag, int argc, char *argv[], struct OPS_ *ops);
 
 static int CreateMatrixCCS (CCSMAT *ccs_matA, CCSMAT *ccs_matB);
 static int DestroyMatrixCCS(CCSMAT *ccs_matA, CCSMAT *ccs_matB);
 
-#if USE_UMFPACK
-#include "umfpack.h"
-/*
-  Create an application context to contain data needed by the
-  application-provided call-back routines, ops->MultiLinearSolver().
-*/
-typedef struct {
-   void   *Symbolic; 
-   void   *Numeric;
-   int    *Ap;
-   int    *Ai;
-   double *Ax;
-   double *null;
-   int    n;
-} AppCtx;
-static void AppCtxCreate(AppCtx *user, CCSMAT *ccs_mat)
-{
-   user->Ap   = ccs_mat->j_col;
-   user->Ai   = ccs_mat->i_row;
-   user->Ax   = ccs_mat->data;
-   user->null = (double*)NULL;
-   user->n    = ccs_mat->nrows;
-   umfpack_di_symbolic(user->n, user->n, user->Ap, user->Ai, user->Ax, &(user->Symbolic), user->null, user->null);
-   umfpack_di_numeric(user->Ap, user->Ai, user->Ax, user->Symbolic, &(user->Numeric), user->null, user->null);
-   umfpack_di_free_symbolic(&(user->Symbolic));
-   return;
-}
-static void AppCtxDestroy(AppCtx *user)
-{
-   umfpack_di_free_numeric(&(user->Numeric));
-   user->Ap = NULL;
-   user->Ai = NULL;
-   user->Ax = NULL;
-   return;
-}
-void UMFPACK_MultiLinearSolver(void *mat, void **b, void **x, int *start, int *end, struct OPS_ *ops)
-{
-   assert(end[0]-start[0]==end[1]-start[1]);
-   AppCtx *user = (AppCtx*)ops->multi_linear_solver_workspace;
-   LAPACKVEC *b_vec = (LAPACKVEC*)b, *x_vec = (LAPACKVEC*)x;
-   double *b_array = b_vec->data+start[0]*b_vec->ldd; 
-   double *x_array = x_vec->data+start[1]*x_vec->ldd; 
-   int idx, ncols = end[0]-start[0];
-   for (idx = 0; idx < ncols; ++idx) {
-      umfpack_di_solve (UMFPACK_A, user->Ap, user->Ai, user->Ax, 
-	    x_array, b_array, user->Numeric, user->null, user->null);
-      b_array += b_vec->ldd; x_array += x_vec->ldd;
-   }
-   return;
-}
-#endif
-int TestAppCCS(int argc, char *argv[]) 
+int TestAppPAS_CCS(int argc, char *argv[]) 
 {
 #if USE_MPI
    MPI_Init(&argc, &argv);
@@ -94,45 +38,74 @@ int TestAppCCS(int argc, char *argv[])
    OPS_CCS_Set (ccs_ops);
    OPS_Setup (ccs_ops);
 
+   OPS *pas_ops = NULL;
+   OPS_Create (&pas_ops);
+   OPS_PAS_Set (pas_ops,ccs_ops);
+   OPS_Setup (pas_ops);
+
    void *matA, *matB; OPS *ops;
 
    CCSMAT ccs_matA, ccs_matB;
    CreateMatrixCCS(&ccs_matA, &ccs_matB);
 
-   ops = ccs_ops; matA = (void*)(&ccs_matA); matB = (void*)(&ccs_matB);
+   int n = ccs_matA.nrows, row, col; double h = 1.0/(n+1);
+   LAPACKMAT lapack_matA; 
+   lapack_matA.nrows = n; lapack_matA.ncols = n; lapack_matA.ldd = n;
+   lapack_matA.data  = malloc(n*n*sizeof(double));
+   for (col = 0; col < n; ++col) {
+	   for (row = 0; row < n; ++row) {			
+		   if (row == col) lapack_matA.data[row+n*col] = 2.0/h;
+		   else if (row-col == 1) lapack_matA.data[row+n*col] = -1.0/h;
+		   else if (row-col ==-1) lapack_matA.data[row+n*col] = -1.0/h;
+		   else lapack_matA.data[row+n*col] = 0.0;
+	   }			
+   }
+
+   LAPACKVEC lapack_vec;
+   lapack_vec.nrows = n; lapack_vec.ncols = n; lapack_vec.ldd = n;
+   lapack_vec.data  = malloc(n*n*sizeof(double));
+   for (col = 0; col < n; ++col) {		
+	   for (row = 0; row < n; ++row) {
+		   if (row == col) lapack_vec.data[row+n*row] = -0.1;
+		   else lapack_vec.data[row+n*col] = 0.0;
+	   }
+   }
+   PASMAT pas_matA, pas_matB; 
+   pas_matA.level_aux = 0; pas_matA.num_levels = 1;
+   pas_matA.QQ = malloc(sizeof(void*));
+   pas_matA.QX = malloc(sizeof(void**)); 
+   pas_matA.XX    = (void*)&lapack_matA;
+   pas_matA.QQ[0] = (void*)&ccs_matA;
+   pas_matA.QX[0] = (void**)&lapack_vec;
+   pas_matB.level_aux = 0; pas_matB.num_levels = 1;
+   pas_matB.QQ = malloc(sizeof(void*));
+   pas_matB.QX = NULL; 
+   pas_matB.XX = NULL;
+   pas_matB.QQ[0] = (void*)&ccs_matB;
+
+   ops = pas_ops; matA = &pas_matA; matB = &pas_matB;
+
 
    //TestMultiVec(matA,ops);
    //TestMultiLinearSolver(matA,ops);
    //TestOrth(matA,ops);
-   /* The following three fucntions can not be test for PASMAT */
-   //TestLinearSolver(matA,ops);
    /* flag == 0 表示不使用外部多向量线性求解器
     * flag == 1 表示仅使用外部多向量线性求解器
     * flag == 2 表示以外部多向量线性求解器为预条件子 */
+   /* 考虑使用 PAS 自带的线性解法器, 同时使用 UMFPACK
+    * 值得注意的是, GCG 的线性解法器只是为了得到新的向量, 而非求解线性方程组 */
    int flag = 0;
-#if USE_UMFPACK 
-   AppCtx user; flag = 1;
-   if (flag>=1) {
-      AppCtxCreate(&user, &ccs_matA);
-      ops->multi_linear_solver_workspace = (void*)&user;
-      ops->MultiLinearSolver = UMFPACK_MultiLinearSolver;
-   }
-#endif
-   //TestEigenSolver(matA,matB,flag,argc,argv,ops);
-   TestEigenSolverPAS(matA,matB,flag,argc,argv,ops);
-#if USE_UMFPACK
-   if (flag>=1) {
-      AppCtxDestroy(&user);
-   }
-#endif
-   //TestMultiGrid(matA,matB,ops);
+   TestEigenSolverGCG(matA,matB,flag,argc,argv,ops);
 
+   free(pas_matA.QQ); pas_matA.QQ = NULL;
+   free(pas_matA.QX); pas_matA.QX = NULL;
+   free(pas_matB.QQ); pas_matB.QQ = NULL;
+   free(pas_matB.QX); pas_matB.QX = NULL;
+   free(lapack_vec.data) ; lapack_vec.data  = NULL;
    DestroyMatrixCCS(&ccs_matA, &ccs_matB);
 
    OPS_Destroy (&ccs_ops);
-#if TEST_PAS
    OPS_Destroy (&pas_ops);
-#endif
 
 #if USE_MPI
    MPI_Finalize();
@@ -142,8 +115,8 @@ int TestAppCCS(int argc, char *argv[])
 
 static int CreateMatrixCCS(CCSMAT *ccs_matA, CCSMAT *ccs_matB) 
 {
-   //int n = 12, row, col; double h = 1.0/(n+1);
-   int n = 1000+7, col; double h = 1.0/(n+1);
+   int n = 50, row, col; double h = 1.0/(n+1);
+   //int n = 1000+7, col; double h = 1.0/(n+1);
    ccs_matA->nrows = n; ccs_matA->ncols = n;
    ccs_matA->j_col = malloc((n+1)*sizeof(int));
    ccs_matA->i_row = malloc((3*n-2)*sizeof(int));

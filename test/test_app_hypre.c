@@ -140,10 +140,11 @@ int TestAppHYPRE(int argc, char *argv[])
       ops->multi_linear_solver_workspace = (void*)&user;
       ops->MultiLinearSolver = HYPRE_MultiLinearSolver;
    }
-   TestEigenSolver(matA,matB,flag,argc,argv,ops);
+   //TestEigenSolverGCG(matA,matB,flag,argc,argv,ops);
    if (flag>=1) {
       AppCtxDestroy(&user);
    }
+   TestEigenSolverPAS(matA,matB,0,argc,argv,ops);
    //TestMultiGrid(matA,matB,ops);
    /* Ïú»Ùhypre¾ØÕó */
 #if USE_PHG_MAT
