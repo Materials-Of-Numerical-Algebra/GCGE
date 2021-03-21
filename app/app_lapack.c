@@ -68,6 +68,9 @@ static void DenseMatQtAP(char ntluA, char nsdC,
 			inc = 1;			
 			if (beta==1.0) {
 				if (alpha!=0.0) {
+#if USE_OMP
+					#pragma omp parallel for schedule(static) num_threads(OMP_NUM_THREADS)
+#endif
 					for (idx = 0; idx < ncolsC; ++idx) {
 						matC[ldC*idx] += alpha*ddot(&nrowsA,
 							matQ+ldQ*idx,&inc,matP+ldP*idx,&inc);
@@ -76,34 +79,48 @@ static void DenseMatQtAP(char ntluA, char nsdC,
 			}
 			else if (beta==0.0) {
 				if (alpha!=0.0) {
+#if USE_OMP
+					#pragma omp parallel for schedule(static) num_threads(OMP_NUM_THREADS)
+#endif
 					for (idx = 0; idx < ncolsC; ++idx) {
 						matC[ldC*idx] = alpha*ddot(&nrowsA,
 							matQ+ldQ*idx,&inc,matP+ldP*idx,&inc);
 					}
 				}
-				else {					
+				else {
 					if (ldC == 1) {
 						memset(matC,0,ncolsC*sizeof(double));
 					}
 					else {
+#if USE_OMP
+					    #pragma omp parallel for schedule(static) num_threads(OMP_NUM_THREADS)
+#endif
 						for (idx = 0; idx < ncolsC; ++idx) {
 							matC[ldC*idx] = 0.0;
 						}	
 					}	
 				}				
 			}
-			else {				
+			else {
+#if USE_OMP
+				#pragma omp parallel for schedule(static) num_threads(OMP_NUM_THREADS)
+#endif
 				for (idx = 0; idx < ncolsC; ++idx) {
 					matC[ldC*idx] = alpha*ddot(&nrowsA,
 						matQ+ldQ*idx,&inc,matP+ldP*idx,&inc)
-						+beta*matC[ldC*idx] ;
+						+beta*matC[ldC*idx];
 				}
 			}
 		}
 		else if (nsdC == 'S') {
 			assert(nrowsC == ncolsC);
 			inc = 1;
+#if USE_OMP
+		    #pragma omp parallel for schedule(static) num_threads(OMP_NUM_THREADS)
+#endif
 			for (idx = 0; idx < ncolsC; ++idx) {
+				int nrowsC;
+				nrowsC = ncolsC - idx;
 				dgemv(&charT,&nrowsA,&nrowsC,
 						&alpha,matQ+ldQ*idx    ,&ldQ,
 						       matP+ldP*idx    ,&inc, 

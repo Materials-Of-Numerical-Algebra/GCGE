@@ -224,6 +224,8 @@ static void MatDotMultiVec (PASMAT *mat, PASVEC *x,
 		return;
 	}
 	/* TODO: 要么 QX 与 XX 都是 NULL, 否则都不是 NULL */
+	assert(mat->QX != NULL && mat->XX != NULL);
+	
 	int sizeX = ((LAPACKMAT*)(mat->XX))->ncols;
 	ldIP = ((LAPACKVEC*)(y->x))->ldd;
 	inner_prod = ((LAPACKVEC*)(y->x))->data+ldIP*start_xy[1];

@@ -5,6 +5,7 @@
  *  单向量与多向量结构是统一的
  *
  *  @author  Yu Li, liyu@tjufe.edu.cn
+ *           ZJ Wang, for OpenMP
  *
  *       Created:  2020/8/13
  *      Revision:  none
@@ -52,13 +53,17 @@ static void MatDotMultiVec (CCSMAT *mat, LAPACKVEC *x,
 	assert(end[0]-start[0]==end[1]-start[1]);
 	assert(y->nrows==y->ldd);
 	assert(x->nrows==x->ldd);
-	int length = end[0]-start[0]; int i, j, col; 
-	double *dy, *dx, *dm; int *i_row;
+	int length = end[0]-start[0]; int col; 
 	if (mat!=NULL) {
 		memset(y->data+(y->ldd)*start[1],0,(y->ldd)*length*sizeof(double));
-		dx = x->data+(x->ldd)*(start[0]);
+#if USE_OMP
+		#pragma omp parallel for schedule(static) num_threads(OMP_NUM_THREADS)
+#endif
 		for (col = 0; col < length; ++col) {
+			int i, j;
+			double *dm, *dx, *dy; int *i_row;
 			dm = mat->data; i_row = mat->i_row;
+			dx = x->data+(x->ldd)*(start[0]+col);
 			dy = y->data+(y->ldd)*(start[1]+col);
 			for (j = 0; j < mat->ncols; ++j, ++dx) {
 				for (i = mat->j_col[j]; i < mat->j_col[j+1]; ++i) {
