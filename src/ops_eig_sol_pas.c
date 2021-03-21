@@ -106,7 +106,7 @@ static void ComputeRayleighRitz(PASMAT *ss_matA, PASMAT *ss_matB,
 		ops_pas->Printf("initi ss_evec->q[%d]\n",level);
 		ops_pas->app_ops->MultiVecView(ss_evec->q[level],0,sizeX,ops_pas->app_ops);
 #endif
-		nevGiven = 0; nevConv = pas_solver->nevMax;
+		nevGiven = 0; nevConv = pas_solver->nevConv;
 		//nevGiven = 0; nevConv = sizeX;
 		ops_pas->app_ops->EigenSolver(ss_matA->QQ[level],ss_matB->QQ[level],ss_eval,ss_evec->q[level],
 			nevGiven,&nevConv,ops_pas->app_ops);
@@ -158,15 +158,8 @@ static void ComputeRayleighRitz(PASMAT *ss_matA, PASMAT *ss_matB,
 		ops_pas->app_ops->MultiVecFromItoJ(ss_matA->P,level,level_aux,
 			ss_matA->QX[level],ss_matA->QX[level_aux],start,end,
 			ss_matA->QX,ops_pas->app_ops);			
-#if DEBUG
-		//ops_pas->Printf("ss_matA level = %d\n",level);
-		//ops_pas->MatView((void*)ss_matA,ops_pas);
-		//ops_pas->Printf("ss_matB level = %d\n",level);
-		//ops_pas->MatView((void*)ss_matB,ops_pas);
-#endif
+
 		/* 调用GCG进行特征值问题的求解 */		
-		//ops_pas->MultiVecCreateByMat(&(mv_ws_gcg[0]),sizeV,
-		//	(void*)ss_matA,ops_pas);
 		PASVEC pas_vec_ws[4]; LAPACKVEC lapack_vec_ws[4];
 		for (idx = 0; idx < 4; ++idx) {
 			mv_ws_gcg[idx] = (void**)&(pas_vec_ws[idx]);
@@ -224,7 +217,7 @@ static void ComputeRayleighRitz(PASMAT *ss_matA, PASMAT *ss_matB,
 		ops_pas->Printf("initi ss_evec, level = %d\n",level);
 		ops_pas->MultiVecView((void**)ss_evec,0,sizeX,ops_pas);
 #endif
-		nevGiven = sizeX; nevConv = pas_solver->nevMax;
+		nevGiven = sizeX; nevConv = pas_solver->nevConv;
 		//nevGiven = sizeX; nevConv = sizeX;
 		ops_pas->EigenSolver((void*)ss_matA,(void*)ss_matB,ss_eval,(void**)ss_evec,
 			nevGiven,&nevConv,ops_pas);
@@ -333,16 +326,19 @@ static int  CheckConvergence(void *A, void *B, double *ss_eval, void **ritz_vec,
 		mv_ws[0][level],0,start,end,dbl_ws,1,ops_pas->app_ops);
 	for (idx = 0; idx < numCheck; ++idx) {
 		dbl_ws[idx] = sqrt(dbl_ws[idx]);
-		ops_pas->Printf("PAS: [%d] %6.4e (%6.4e)\n",startN+idx,ss_eval[startN+idx],dbl_ws[idx]);
+		ops_pas->Printf("PAS: [%d] %6.14e (%6.4e, %6.4e)\n",startN+idx,ss_eval[startN+idx],
+			dbl_ws[idx],dbl_ws[idx]/fabs(ss_eval[startN+idx]));
 	}
 	ops_pas->Printf("tol = %6.4e, %6.4e\n", tol[0], tol[1]);
 	for (idx = 0; idx < numCheck; ++idx) {
+		//break;
 		if (dbl_ws[idx] > tol[0] || 
-				dbl_ws[idx] > ss_eval[startN+idx]*tol[1]) break;
+				dbl_ws[idx] > fabs(ss_eval[startN+idx])*tol[1]) break;
 	}
 	/* 判断重根 */
 	for ( ; idx > 0; --idx) {
-		if ( fabs((ss_eval[startN+idx-1]-ss_eval[startN+idx])/ss_eval[startN+idx-1]) > 1e-2 ) {
+		if ( fabs((ss_eval[startN+idx-1]-ss_eval[startN+idx])/ss_eval[startN+idx-1])
+			> pas_solver->gapMin ) {
 			break;
 		}
 	}
@@ -466,12 +462,12 @@ static void OrthXtoQ(PASVEC *ss_evec, void **P, void **B, void **ritz_vec)
 	/* DO NOT NEED to set iniital values */
 #if 0
 	if (level == 0) {
-	   ops_pas->app_ops->MultiVecFromItoJ(P,level,level_aux,
-		 ritz_vec,x,start,end,mv_ws[1],ops_pas->app_ops);
+	   	ops_pas->app_ops->MultiVecFromItoJ(P,level,level_aux,
+		 	ritz_vec,x,start,end,mv_ws[1],ops_pas->app_ops);
 	}
 	else {
-	   ops_pas->app_ops->MultiVecFromItoJ(P,level,level_aux,
-		 X,x,start,end,mv_ws[1],ops_pas->app_ops);
+	   	ops_pas->app_ops->MultiVecFromItoJ(P,level,level_aux,
+		 	X,x,start,end,mv_ws[1],ops_pas->app_ops);
 	}
 #endif
 	/* solve x */
@@ -591,6 +587,7 @@ static void PAS(void *A, void *B , double *eval, void **evec,
 	OPS_Setup  (ops_pas);
     
 	pas_solver = (PASSolver*)ops->eigen_solver_workspace;	
+	pas_solver->nevConv = *nevConv;
 
 	int    nevMax, multiMax, block_size; 
 	int    numIterMax, numIter, nev, numCheck;
@@ -599,14 +596,14 @@ static void PAS(void *A, void *B , double *eval, void **evec,
 	PASMAT ss_matA, ss_matB; PASVEC ss_evec;
 	double *ss_eval, *tol; 
 
-	ss_eval = eval; ritz_vec = evec;
+	ss_eval = eval; ritz_vec = evec;	
 	
 	nevMax     = pas_solver->nevMax    ; multiMax = pas_solver->multiMax; 
 	block_size = pas_solver->block_size; tol      = pas_solver->tol;
 	numIterMax = pas_solver->numIterMax;
 
 	/* 全局变量初始化 */
-	sizeX = nevMax+multiMax;
+	sizeX = nevMax; 
 	sizeC = 0; sizeN = sizeX; 
 	startN = sizeC; endN = startN+sizeN;	
 	level     = pas_solver->level_aux;
@@ -671,8 +668,8 @@ static void PAS(void *A, void *B , double *eval, void **evec,
 		if (level == 0) {
 		
 			ops_pas->Printf("CheckConvergence\n");
-			numCheck = (startN+multiMax+sizeN<sizeX)?(multiMax+sizeN):(sizeX-startN);
-			numCheck = numCheck<20?numCheck:20;
+			numCheck = (startN+sizeN<sizeX)?(sizeN):(sizeX-startN);
+			numCheck = numCheck<pas_solver->check_conv_max_num?numCheck:pas_solver->check_conv_max_num;
 			sizeC = CheckConvergence(pas_solver->A[0],pas_solver->B[0],
 				ss_eval,ritz_vec,numCheck,tol);
 
@@ -792,7 +789,7 @@ static void PAS(void *A, void *B , double *eval, void **evec,
 
 /* 设定 PAS 的工作空间 */
 void EigenSolverSetup_PAS(
-	int    nevMax    , int    multiMax  , double gapMin,
+	int    multiMax  , double gapMin    , int    nevMax    , 
 	int    block_size, double tol[2]    , int    numIterMax,
 	int block_size_rr, double tol_rr[2] , int numIterMax_rr,
 	void  **A_array  , void   **B_array , void **P_array, int num_levels,
@@ -800,11 +797,12 @@ void EigenSolverSetup_PAS(
 	struct OPS_ *ops)
 {
 	static PASSolver pas_solver_static = { 
-		.nevMax     = 1   , .multiMax = 2   , .gapMin   = 0.01,
+		.nevMax     = 1   , .multiMax = 1   , .gapMin   = 0.01,
 		.block_size = 1   , .tol[0]   = 1e-6, .tol[1]   = 1e-6, .numIterMax = 10, 
 		.block_size_rr = 1, .tol_rr[0]= 1e-6, .tol_rr[1]= 1e-6, .numIterMax_rr = 10, 
 		.mv_ws      = {}  , .dbl_ws   = NULL, .int_ws   = NULL,
-		/* 算法内部参数 */	
+		/* 算法内部参数 */
+		.check_conv_max_num      = 100,	
 		.compN_user_defined_multi_linear_solver = 0,
 		.compN_bamg_max_iter[0]  = 1, /* bamg 最大迭代次数 */
 		/* 前后光滑最大迭代次数 */
@@ -843,34 +841,34 @@ void EigenSolverSetup_PAS(
 		.compN_bamg_tol[14]  = 1e-26, .compN_bamg_tol[15]  = 1e-26, 
 		.compN_bamg_tol_type = "abs",
 		.orthX_user_defined_multi_linear_solver = 0,
-		.orthX_ls_max_iter                = 4    ,
+		.orthX_ls_max_iter                = 100  ,
 		.orthX_ls_rate                    = 1e-2 ,
 		.orthX_ls_tol                     = 1e-14, 
 		.orthX_ls_tol_type                = "abs",
-		.orthX_orth_method                = "bgs", 
+		.orthX_orth_method                = "mgs", 
 		.orthX_orth_block_size            = -1   ,
 		.orthX_orth_max_reorth            = 4    ,
-		.orthX_orth_zero_tol              = 1e-16,
+		.orthX_orth_zero_tol              = 1e-14,
 		.compRR_gcg_check_conv_max_num    = 20   ,
-		.compRR_gcg_initX_orth_method     = "bgs",
+		.compRR_gcg_initX_orth_method     = "mgs",
 		.compRR_gcg_initX_orth_block_size = -1   ,
 		.compRR_gcg_initX_orth_max_reorth = 4    ,
-		.compRR_gcg_initX_orth_zero_tol   = 1e-16,
-		.compRR_gcg_compP_orth_method     = "bgs",
+		.compRR_gcg_initX_orth_zero_tol   = 1e-14,
+		.compRR_gcg_compP_orth_method     = "mgs",
 		.compRR_gcg_compP_orth_block_size = -1   ,
 		.compRR_gcg_compP_orth_max_reorth = 4    ,
-		.compRR_gcg_compP_orth_zero_tol   = 1e-16,
-		.compRR_gcg_compW_orth_method     = "bgs",
+		.compRR_gcg_compP_orth_zero_tol   = 1e-14,
+		.compRR_gcg_compW_orth_method     = "mgs",
 		.compRR_gcg_compW_orth_block_size = -1   ,
 		.compRR_gcg_compW_orth_max_reorth = 4    ,
-		.compRR_gcg_compW_orth_zero_tol   = 1e-16,
-		.compRR_gcg_compW_cg_max_iter     = 10   ,
+		.compRR_gcg_compW_orth_zero_tol   = 1e-14,
+		.compRR_gcg_compW_cg_max_iter     = 30   ,
 		.compRR_gcg_compW_cg_rate         = 1e-2 ,
 		.compRR_gcg_compW_cg_tol          = 1e-14,
 		.compRR_gcg_compW_cg_tol_type     = "abs",
 		.compRR_gcg_compRR_min_num        = -1   ,
 		.compRR_gcg_compRR_min_gap        = 0.01 ,
-		.compRR_gcg_compRR_tol            = 1e-16,		
+		.compRR_gcg_compRR_tol            = 1e-14,		
 	};
 	if (nevMax>0)	
 		pas_solver_static.nevMax     = nevMax;

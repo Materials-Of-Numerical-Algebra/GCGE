@@ -62,9 +62,12 @@ static void OrthSelf(void **x,int start_x,int *end_x, void *B, int max_reorth,
 #endif
 		if (*r_k < orth_zero_tol) {
 			ops->Printf("r_[%d] = %6.4e\n",k,*r_k);
-			start[0] = *end_x-1; end[0] = *end_x;
-			start[1] = k       ; end[1] = k+1   ;
-			ops->MultiVecAxpby(1.0,x,0.0,x,start,end,ops);
+			/* 保证 k 不指向 最后一个 向量, 若是最后一个, 直接舍去 */
+			if (k < *end_x-1) {
+				start[0] = *end_x-1; end[0] = *end_x;
+				start[1] = k       ; end[1] = k+1   ;
+				ops->MultiVecAxpby(1.0,x,0.0,x,start,end,ops);
+			}
 			--k; --(*end_x);
 			continue;
 		}
@@ -130,6 +133,7 @@ static void OrthSelfEVP(void **x,int start_x,int *end_x, void *B, int max_reorth
 	double *A, *W, *WORK;
 
 	for (idx = 0; idx < 1+max_reorth; ++idx) {
+		if (*end_x==start_x) return;
 		assert(*end_x-start_x>=1);
 		lin_dep = 0;
 		N = *end_x-start_x; LDA = N  ; LWORK = 3*N*N-N;
@@ -152,22 +156,24 @@ static void OrthSelfEVP(void **x,int start_x,int *end_x, void *B, int max_reorth
 #endif
 		assert(INFO==0);
 		/* W is in ascending order */
-#if DEBUG 
+#if DEBUG
 		ops->Printf("\n%d:\n",idx);
 #endif
 		for (k = 0; k < N; ++k) {
-			//ops->Printf("OO %e\t",W[k]);
-			assert(W[k]>=0);
-			W[k] = sqrt(W[k]);
-			if (W[k] > orth_zero_tol) {
-				W[k] = 1.0/W[k];
+#if DEBUG
+			ops->Printf("%e\n",W[k]);
+#endif
+			/* 理论上 A 是半正定矩阵, 特征值>=0 */
+			assert(W[k] > -orth_zero_tol);
+			/* 这里 与 OrthSelf 不同的是, orth_zero_tol 判断的是 模长平方
+			 * 若判断 sqrt(W[k]) 容易得到错误的 向量组的秩
+			 * 原因是 特征值有精度 */
+			if (fabs(W[k]) > orth_zero_tol) {
+				W[k] = 1.0/sqrt(W[k]);
 			}
 			else {
 				++lin_dep;
 			}
-#if DEBUG
-			ops->Printf("%f\t",W[k]);
-#endif
 		}
 		if (lin_dep > 0) {
 			ops->Printf("There has %d linear dependent vec\n",lin_dep);
@@ -184,7 +190,11 @@ static void OrthSelfEVP(void **x,int start_x,int *end_x, void *B, int max_reorth
 		start[0] = 0        ; end[0] = N-lin_dep;
 		start[1] = start_x  ; end[1] = *end_x;
 		ops->MultiVecAxpby(1.0,mv_ws,0.0,x,start,end,ops);
-		if ((lin_dep==0&&(dasum(&N,W,&inc)-N)<reorth_tol)) {
+		if (lin_dep==0&&fabs(dasum(&N,W,&inc)-N)<reorth_tol) {
+#if DEBUG
+			ops->Printf("lin_dep = %d, dasum(&N,W,&inc) = %e, reorth_tol = %e\n", 
+				lin_dep, dasum(&N,W,&inc), reorth_tol);
+#endif
 			break;
 		}	
 	}
@@ -492,7 +502,7 @@ void MultiVecOrthSetup_ModifiedGramSchmidt(
 #endif
 	static ModifiedGramSchmidtOrth mgs_orth_static = {
 		.block_size = -1  , .orth_zero_tol = 1e-14, 
-		.max_reorth = 4   , .reorth_tol    = DBL_EPSILON,
+		.max_reorth = 4   , .reorth_tol    = 10*DBL_EPSILON,
 		.mv_ws      = NULL, .dbl_ws        = NULL};
 	mgs_orth_static.block_size    = block_size   ;
 	mgs_orth_static.orth_zero_tol = orth_zero_tol;
@@ -765,7 +775,7 @@ void MultiVecOrthSetup_BinaryGramSchmidt(
 {
 	static BinaryGramSchmidtOrth bgs_orth_static = {
 		.block_size = 4   , .orth_zero_tol = 1e-14, 
-		.max_reorth = 4   , .reorth_tol    = DBL_EPSILON,
+		.max_reorth = 4   , .reorth_tol    = 10*DBL_EPSILON,
 		.mv_ws      = NULL, .dbl_ws        = NULL};
 	bgs_orth_static.block_size    = block_size   ;
 	bgs_orth_static.orth_zero_tol = orth_zero_tol;

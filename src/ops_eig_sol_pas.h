@@ -22,7 +22,7 @@
 /* PAS 的结构体 */
 typedef struct PASSolver_ {
 	void   **A       ; void  **B     ; void **P;
-	double *eval     ; void  **evec  ; 
+	double *eval     ; void  **evec  ; int nevConv;
 	int    nevMax    ; int   multiMax; double gapMin;
 	int    block_size; double tol[2] ; int numIterMax;
 	int    num_levels; int  level_aux; 	
@@ -74,7 +74,7 @@ typedef struct PASSolver_ {
 
 /* 设定 PAS 的工作空间 */
 void EigenSolverSetup_PAS(
-	int    nevMax    , int    multiMax , double gapMin,
+	int    multiMax  , double gapMin   , int    nevMax    , 
 	int    block_size, double tol[2]   , int    numIterMax,
 	int block_size_rr, double tol_rr[2], int  numIterMax_rr,
 	void  **A_array  , void   **B_array, void **P_array, 

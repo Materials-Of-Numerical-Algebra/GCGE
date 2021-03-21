@@ -14,6 +14,10 @@
 
 #include "ops_config.h"
 
+#if USE_OMP
+#include <omp.h>
+#endif
+
 #if USE_MPI
 #include <mpi.h>
 

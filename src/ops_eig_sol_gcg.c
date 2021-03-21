@@ -57,6 +57,8 @@ static void InitializeX(void **V, void **ritz_vec, void *B, int nevGiven)
 #if TIME_GCG
 #if USE_MPI
     time_gcg.initX_time -= MPI_Wtime();
+#elif USE_OMP
+    time_gcg.initX_time -= omp_get_wtime();
 #else
     time_gcg.initX_time -= clock();
 #endif
@@ -110,6 +112,8 @@ static void InitializeX(void **V, void **ritz_vec, void *B, int nevGiven)
 #if TIME_GCG
 #if USE_MPI
     time_gcg.initX_time += MPI_Wtime();
+#elif USE_OMP
+    time_gcg.initX_time += omp_get_wtime();
 #else
     time_gcg.initX_time += clock();
 #endif
@@ -121,6 +125,8 @@ static void ComputeRitzVec(void **ritz_vec, void **V, double *ss_evec)
 #if TIME_GCG
 #if USE_MPI
     time_gcg.compRV_time -= MPI_Wtime();
+#elif USE_OMP
+    time_gcg.compRV_time -= omp_get_wtime();
 #else
     time_gcg.compRV_time -= clock();
 #endif
@@ -154,6 +160,8 @@ static void ComputeRitzVec(void **ritz_vec, void **V, double *ss_evec)
 #if TIME_GCG
 #if USE_MPI
     time_gcg.compRV_time += MPI_Wtime();
+#elif USE_OMP
+    time_gcg.compRV_time += omp_get_wtime();
 #else
     time_gcg.compRV_time += clock();
 #endif
@@ -166,6 +174,8 @@ static int CheckConvergence(void *A, void *B, double *ss_eval, void **ritz_vec,
 #if TIME_GCG
 #if USE_MPI
     time_gcg.checkconv_time -= MPI_Wtime();
+#elif USE_OMP
+    time_gcg.checkconv_time -= omp_get_wtime();
 #else
     time_gcg.checkconv_time -= clock();
 #endif
@@ -203,7 +213,7 @@ static int CheckConvergence(void *A, void *B, double *ss_eval, void **ritz_vec,
 		if (fabs(ss_eval[startN+idx]) > tol[1]) {
 			if (inner_prod[idx] > tol[0] || 
 					inner_prod[idx] > fabs(ss_eval[startN+idx])*tol[1]) {
-#if DEBUG
+#if 1
 				ops_gcg->Printf("GCG: [%d] %6.14e (%6.4e, %6.4e)\n",
 						startN+idx,ss_eval[startN+idx],
 						inner_prod[idx], inner_prod[idx]/fabs(ss_eval[startN+idx]));
@@ -213,6 +223,11 @@ static int CheckConvergence(void *A, void *B, double *ss_eval, void **ritz_vec,
 		}
 		else {
 			if (inner_prod[idx] > tol[0]) {
+#if 1
+				ops_gcg->Printf("GCG: [%d] %6.14e (%6.4e, %6.4e)\n",
+						startN+idx,ss_eval[startN+idx],
+						inner_prod[idx], inner_prod[idx]/fabs(ss_eval[startN+idx]));
+#endif 
 				break;
 			}
 		}
@@ -270,6 +285,8 @@ static int CheckConvergence(void *A, void *B, double *ss_eval, void **ritz_vec,
 #if TIME_GCG
 #if USE_MPI
     time_gcg.checkconv_time += MPI_Wtime();
+#elif USE_OMP
+    time_gcg.checkconv_time += omp_get_wtime();
 #else
     time_gcg.checkconv_time += clock();
 #endif
@@ -289,6 +306,8 @@ static void ComputeP(void **V, double *ss_evec, int *offset)
 #if TIME_GCG
 #if USE_MPI
     time_gcg.compP_time -= MPI_Wtime();
+#elif USE_OMP
+    time_gcg.compP_time -= omp_get_wtime();
 #else
     time_gcg.compP_time -= clock();
 #endif
@@ -427,6 +446,8 @@ static void ComputeP(void **V, double *ss_evec, int *offset)
 #if TIME_GCG
 #if USE_MPI
     time_gcg.compP_time += MPI_Wtime();
+#elif USE_OMP
+    time_gcg.compP_time += omp_get_wtime();
 #else
     time_gcg.compP_time += clock();
 #endif
@@ -438,6 +459,8 @@ static void ComputeX(void **V, void **ritz_vec)
 #if TIME_GCG
 #if USE_MPI
     time_gcg.compX_time -= MPI_Wtime();
+#elif USE_OMP
+    time_gcg.compX_time -= omp_get_wtime();
 #else
     time_gcg.compX_time -= clock();
 #endif
@@ -449,6 +472,8 @@ static void ComputeX(void **V, void **ritz_vec)
 #if TIME_GCG
 #if USE_MPI
     time_gcg.compX_time += MPI_Wtime();
+#elif USE_OMP
+    time_gcg.compX_time += omp_get_wtime();
 #else
     time_gcg.compX_time += clock();
 #endif
@@ -461,6 +486,8 @@ static void ComputeW(void **V, void *A, void *B,
 #if TIME_GCG
 #if USE_MPI
     time_gcg.compW_time -= MPI_Wtime();
+#elif USE_OMP
+    time_gcg.compW_time -= omp_get_wtime();
 #else
     time_gcg.compW_time -= clock();
 #endif
@@ -508,6 +535,8 @@ static void ComputeW(void **V, void *A, void *B,
 #if TIME_GCG
 #if USE_MPI
     	time_gcg.linsol_time -= MPI_Wtime();
+#elif USE_OMP
+    	time_gcg.linsol_time -= omp_get_wtime();
 #else
     	time_gcg.linsol_time -= clock();
 #endif
@@ -522,6 +551,8 @@ static void ComputeW(void **V, void *A, void *B,
 #if TIME_GCG
 #if USE_MPI
     	time_gcg.linsol_time += MPI_Wtime();
+#elif USE_OMP
+    	time_gcg.linsol_time += omp_get_wtime();
 #else
     	time_gcg.linsol_time += clock();
 #endif
@@ -538,6 +569,8 @@ static void ComputeW(void **V, void *A, void *B,
 #if TIME_GCG
 #if USE_MPI
     	time_gcg.linsol_time -= MPI_Wtime();
+#elif USE_OMP
+    	time_gcg.linsol_time -= omp_get_wtime();
 #else
     	time_gcg.linsol_time -= clock();
 #endif
@@ -552,6 +585,8 @@ static void ComputeW(void **V, void *A, void *B,
 #if TIME_GCG
 #if USE_MPI
     	time_gcg.linsol_time += MPI_Wtime();
+#elif USE_OMP
+    	time_gcg.linsol_time += omp_get_wtime();
 #else
     	time_gcg.linsol_time += clock();
 #endif
@@ -616,6 +651,8 @@ static void ComputeW(void **V, void *A, void *B,
 #if TIME_GCG
 #if USE_MPI
     	time_gcg.compW_time += MPI_Wtime();
+#elif USE_OMP
+    	time_gcg.compW_time += omp_get_wtime();
 #else
     	time_gcg.compW_time += clock();
 #endif
@@ -628,6 +665,8 @@ static void ComputeRayleighRitz(double *ss_matA, double *ss_eval, double *ss_eve
 #if TIME_GCG
 #if USE_MPI
     time_gcg.compRR_time -= MPI_Wtime();
+#elif USE_OMP
+    time_gcg.compRR_time -= omp_get_wtime();
 #else
     time_gcg.compRR_time -= clock();
 #endif
@@ -671,6 +710,8 @@ static void ComputeRayleighRitz(double *ss_matA, double *ss_eval, double *ss_eve
 #if TIME_GCG
 #if USE_MPI
     time_gcg.rr_matW_time -= MPI_Wtime();
+#elif USE_OMP
+    time_gcg.rr_matW_time -= omp_get_wtime();
 #else
     time_gcg.rr_matW_time -= clock();
 #endif
@@ -696,6 +737,8 @@ static void ComputeRayleighRitz(double *ss_matA, double *ss_eval, double *ss_eve
 #if TIME_GCG
 #if USE_MPI
     time_gcg.rr_matW_time += MPI_Wtime();
+#elif USE_OMP
+    time_gcg.rr_matW_time += omp_get_wtime();
 #else
     time_gcg.rr_matW_time += clock();
 #endif
@@ -833,6 +876,8 @@ static void ComputeRayleighRitz(double *ss_matA, double *ss_eval, double *ss_eve
 #if TIME_GCG
 #if USE_MPI
     	time_gcg.dsyevx_time -= MPI_Wtime();
+#elif USE_OMP
+    	time_gcg.dsyevx_time -= omp_get_wtime();
 #else
     	time_gcg.dsyevx_time -= clock();
 #endif
@@ -851,6 +896,8 @@ static void ComputeRayleighRitz(double *ss_matA, double *ss_eval, double *ss_eve
 #if TIME_GCG
 #if USE_MPI
     	time_gcg.dsyevx_time += MPI_Wtime();
+#elif USE_OMP
+    	time_gcg.dsyevx_time += omp_get_wtime();
 #else
     	time_gcg.dsyevx_time += clock();
 #endif
@@ -906,6 +953,8 @@ static void ComputeRayleighRitz(double *ss_matA, double *ss_eval, double *ss_eve
 #if TIME_GCG
 #if USE_MPI
     time_gcg.dsyevx_time -= MPI_Wtime();
+#elif USE_OMP
+    time_gcg.dsyevx_time -= omp_get_wtime();
 #else
     time_gcg.dsyevx_time -= clock();
 #endif
@@ -918,6 +967,8 @@ static void ComputeRayleighRitz(double *ss_matA, double *ss_eval, double *ss_eve
 #if TIME_GCG
 #if USE_MPI
     time_gcg.dsyevx_time += MPI_Wtime();
+#elif USE_OMP
+    time_gcg.dsyevx_time += omp_get_wtime();
 #else
     time_gcg.dsyevx_time += clock();
 #endif
@@ -956,6 +1007,8 @@ static void ComputeRayleighRitz(double *ss_matA, double *ss_eval, double *ss_eve
 #if TIME_GCG
 #if USE_MPI
     time_gcg.compRR_time += MPI_Wtime();
+#elif USE_OMP
+    time_gcg.compRR_time += omp_get_wtime();
 #else
     time_gcg.compRR_time += clock();
 #endif
@@ -969,7 +1022,8 @@ static void GCG(void *A, void *B , double *eval, void **evec,
 	 * offsetW[1] <= idx < offsetW[2] ÊÇÎ´ÊÕÁ²µÄ±àºÅ */ 
 	int *offsetP, *offsetW, *ptr_tmp;
 	gcg_solver = (GCGSolver*)ops->eigen_solver_workspace;
-	gcg_solver->nevGiven = nevGiven;	
+	gcg_solver->nevGiven = nevGiven;
+	gcg_solver->nevConv  = *nevConv;	
 	ops_gcg = ops;
 	int    nevMax, multiMax, block_size, nevInit, nev0, nev;
 	int    numIterMax, numIter, numCheck;
@@ -1026,9 +1080,15 @@ static void GCG(void *A, void *B , double *eval, void **evec,
 	ops_gcg->Printf ( "gcg_solver->length_dbl_ws = %d\n", gcg_solver->length_dbl_ws );
 #endif
 
-	offsetP  = gcg_solver->int_ws;
-	offsetW  = offsetP + block_size+2; 
-	int_ws   = offsetW + block_size+2;
+#if 1
+	offsetP = gcg_solver->int_ws;
+	offsetW = offsetP + block_size+2; 
+	int_ws  = offsetW + block_size+2;
+#else	
+	int_ws  = gcg_solver->int_ws;
+	offsetP = int_ws  + 6*(nevInit+2*block_size);
+	offsetW = offsetP + block_size+2;
+#endif
 
 #if TIME_GCG
 	time_gcg.checkconv_time = 0.0;
@@ -1210,9 +1270,31 @@ static void GCG(void *A, void *B , double *eval, void **evec,
 		+time_gcg.compW_time
 		+time_gcg.compX_time
 		+time_gcg.initX_time;
-	ops_gcg->Printf("|Total Time = %.2f, Avg Time per Iteration = %.2f\n",time_gcg.time_total,time_gcg.time_total/gcg_solver->numIter);
+#if USE_MPI
+	ops_gcg->Printf("|Total Time = %.2f, Avg Time per Iteration = %.2f\n",
+		time_gcg.time_total,time_gcg.time_total/gcg_solver->numIter);
+#elif USE_OMP
+	ops_gcg->Printf("|Total Time = %.2f, Avg Time per Iteration = %.2f\n",
+		time_gcg.time_total,time_gcg.time_total/gcg_solver->numIter);
+#else
+	ops_gcg->Printf("|Total Time = %.2f, Avg Time per Iteration = %.2f\n",
+		time_gcg.time_total/CLOCKS_PER_SEC,time_gcg.time_total/CLOCKS_PER_SEC/gcg_solver->numIter);
+#endif
+	
 	ops_gcg->Printf("|checkconv  compP  compRR (rr_matW  dsyexv)  compRV  compW (linsol)  compX  initX\n");
 #if USE_MPI	
+	ops_gcg->Printf("|%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\n",
+		time_gcg.checkconv_time,		
+		time_gcg.compP_time,		
+		time_gcg.compRR_time,
+		time_gcg.rr_matW_time,
+		time_gcg.dsyevx_time,		
+		time_gcg.compRV_time,
+		time_gcg.compW_time,
+		time_gcg.linsol_time,
+		time_gcg.compX_time,
+		time_gcg.initX_time);	   	
+#elif USE_OMP
 	ops_gcg->Printf("|%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\n",
 		time_gcg.checkconv_time,		
 		time_gcg.compP_time,		
