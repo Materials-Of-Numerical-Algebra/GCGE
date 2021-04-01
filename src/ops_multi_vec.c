@@ -15,6 +15,7 @@
 #include	<string.h>
 #include    <assert.h>
 #include    <stdarg.h>
+#include    <time.h>
 
 #include    "ops.h"
 #include    "app_lapack.h"
@@ -24,7 +25,7 @@
 
 void DefaultPrintf(const char *fmt, ...)
 {
-#if USE_MPI
+#if OPS_USE_MPI
     int rank = -1;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     if(PRINT_RANK == rank) {
@@ -41,6 +42,19 @@ void DefaultPrintf(const char *fmt, ...)
 #endif
     return;
 }
+double DefaultGetWtime(void)
+{
+   double time;
+#if OPS_USE_MPI
+    time = MPI_Wtime();
+#elif OPS_USE_OMP
+    time = omp_get_wtime();
+#else
+    time = clock()/CLOCKS_PER_SEC;
+#endif
+    return time;
+}
+
 int DefaultGetOptionFromCommandLine(
 		const char *name, char type, void *value,
 		int argc, char* argv[], struct OPS_ *ops)
@@ -189,7 +203,7 @@ void DefaultMultiVecInnerProd      (char nsdIP, void **x, void **y, int is_vec, 
 	double *inner_prod, int ldIP, struct OPS_ *ops)
 {
 	ops->MultiVecLocalInnerProd (nsdIP,x,y,is_vec,start,end,inner_prod,ldIP,ops);
-#if USE_MPI
+#if OPS_USE_MPI
 
 	int nrows = end[0]-start[0], ncols = end[1]-start[1];
 	if (nsdIP == 'D') {
@@ -355,6 +369,7 @@ void DefaultMultiVecQtAP        (char ntsA, char nsdQAP,
 		else if (ntsA == 'T') {
 			ops->MatTransDotMultiVec(matA,mvP,mv_ws,start,end,ops);
 		}
+		//ops->MultiVecView(mv_ws,start[1],end[1],ops);
 	} 
 	else {
 		if (ntsA == 'N' || ntsA == 'S') {
@@ -372,6 +387,7 @@ void DefaultMultiVecQtAP        (char ntsA, char nsdQAP,
 	start[1] = 0         ; end[1] = endQP[1]-startQP[1];
 	ops->MultiVecInnerProd(nsdQAP,mvQ,mv_ws,is_vec,start,end,qAp,ldQAP,ops);
 #if DEBUG
+	ops->Printf("qAp = %e\n", *qAp);
 	ops->Printf("Q\n");
 	ops->MultiVecView(mvQ,start[0],end[0],ops);
 	ops->Printf("Q*A*P\n");

@@ -27,6 +27,7 @@ void OPS_Create  (OPS **ops)
 {
 	*ops = malloc(sizeof(OPS));
 	(*ops)->Printf                   = NULL;
+	(*ops)->GetWtime                 = NULL;
 	(*ops)->GetOptionFromCommandLine = NULL; 
 	(*ops)->MatView                  = NULL;
 	/* vec */
@@ -84,6 +85,9 @@ void OPS_Setup   (OPS  *ops)
 {
 	if (ops->Printf == NULL) {
 		ops->Printf = DefaultPrintf;
+	}
+	if (ops->GetWtime == NULL) {
+		ops->GetWtime = DefaultGetWtime;
 	}
 	if (ops->GetOptionFromCommandLine == NULL) {
 		ops->GetOptionFromCommandLine = DefaultGetOptionFromCommandLine;
@@ -250,7 +254,7 @@ int SplitDoubleArray(double *destin, int length,
 }
 
 
-#if USE_MPI
+#if OPS_USE_MPI
 /* ×Ó¾ØÕóÍ¨Ñ¶ */
 static int SUBMAT_TYPE_NROWS = 0; 
 static int SUBMAT_TYPE_NCOLS = 0; 

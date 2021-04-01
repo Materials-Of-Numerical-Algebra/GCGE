@@ -51,11 +51,7 @@ static void ComputeRayleighRitz(PASMAT *ss_matA, PASMAT *ss_matB,
 		double *ss_eval, PASVEC *ss_evec)
 {
 #if TIME_PAS
-#if USE_MPI
-    time_pas.compRR_time -= MPI_Wtime();
-#else
-    time_pas.compRR_time -= clock();
-#endif
+    time_pas.compRR_time -= ops_pas->GetWtime();
 #endif
 	//PASSolver *pas = (PASSolver*)ops_pas->app_ops->eigen_solver_workspace;
 	int start[2], end[2], idx, nevGiven, nevConv;
@@ -96,7 +92,7 @@ static void ComputeRayleighRitz(PASMAT *ss_matA, PASMAT *ss_matB,
 			pas_solver->compRR_gcg_compW_cg_max_iter, 
 			pas_solver->compRR_gcg_compW_cg_rate, 
 			pas_solver->compRR_gcg_compW_cg_tol, 
-			pas_solver->compRR_gcg_compW_cg_tol_type,
+			pas_solver->compRR_gcg_compW_cg_tol_type, 0, // without shift 
 			pas_solver->compRR_gcg_compRR_min_num,
 			pas_solver->compRR_gcg_compRR_min_gap, 
 			pas_solver->compRR_gcg_compRR_tol, 
@@ -208,7 +204,7 @@ static void ComputeRayleighRitz(PASMAT *ss_matA, PASMAT *ss_matB,
 			pas_solver->compRR_gcg_compW_cg_max_iter, 
 			pas_solver->compRR_gcg_compW_cg_rate, 
 			pas_solver->compRR_gcg_compW_cg_tol, 
-			pas_solver->compRR_gcg_compW_cg_tol_type,
+			pas_solver->compRR_gcg_compW_cg_tol_type, 0, // without shift
 			pas_solver->compRR_gcg_compRR_min_num,
 			pas_solver->compRR_gcg_compRR_min_gap, 
 			pas_solver->compRR_gcg_compRR_tol, 
@@ -247,22 +243,14 @@ static void ComputeRayleighRitz(PASMAT *ss_matA, PASMAT *ss_matB,
 	}
 #endif
 #if TIME_PAS
-#if USE_MPI
-    time_pas.compRR_time += MPI_Wtime();
-#else
-    time_pas.compRR_time += clock();
-#endif
+    time_pas.compRR_time += ops_pas->GetWtime();
 #endif
 	return;
 }
 static void ComputeRitzVec(void **ritz_vec, PASVEC *ss_evec)
 {
 #if TIME_PAS
-#if USE_MPI
-    time_pas.compRV_time -= MPI_Wtime();
-#else
-    time_pas.compRV_time -= clock();
-#endif
+    time_pas.compRV_time -= ops_pas->GetWtime();
 #endif
 	int start[2], end[2];
 	start[0] = 0    ; end[0] = sizeX;
@@ -285,11 +273,7 @@ static void ComputeRitzVec(void **ritz_vec, PASVEC *ss_evec)
 	ops_pas->app_ops->MultiVecView(ritz_vec,0,sizeX,ops_pas);
 #endif
 #if TIME_PAS
-#if USE_MPI
-    time_pas.compRV_time += MPI_Wtime();
-#else
-    time_pas.compRV_time += clock();
-#endif
+    time_pas.compRV_time += ops_pas->GetWtime();
 #endif
 	return;	
 }
@@ -297,11 +281,7 @@ static int  CheckConvergence(void *A, void *B, double *ss_eval, void **ritz_vec,
 	int numCheck, double *tol)
 {
 #if TIME_PAS
-#if USE_MPI
-    time_pas.checkconv_time -= MPI_Wtime();
-#else
-    time_pas.checkconv_time -= clock();
-#endif
+    time_pas.checkconv_time -= ops_pas->GetWtime();
 #endif
 #if DEBUG
 	ops_pas->Printf("numCheck = %d\n", numCheck);
@@ -343,22 +323,14 @@ static int  CheckConvergence(void *A, void *B, double *ss_eval, void **ritz_vec,
 		}
 	}
 #if TIME_PAS
-#if USE_MPI
-    time_pas.checkconv_time += MPI_Wtime();
-#else
-    time_pas.checkconv_time += clock();
-#endif
+    time_pas.checkconv_time += ops_pas->GetWtime();
 #endif
 	return (sizeC+idx);
 }
 static void PromoteX(void ***X, void **P)
 {
 #if TIME_PAS
-#if USE_MPI
-    time_pas.promX_time -= MPI_Wtime();
-#else
-    time_pas.promX_time -= clock();
-#endif
+    time_pas.promX_time -= ops_pas->GetWtime();
 #endif
 	int start[2], end[2];
 	start[0] = 0; end[0] = sizeX;
@@ -366,22 +338,14 @@ static void PromoteX(void ***X, void **P)
 	ops_pas->app_ops->MultiVecFromItoJ(P,level,level-1,
 		X[level],X[level-1],start,end,X,ops_pas->app_ops);
 #if TIME_PAS
-#if USE_MPI
-    time_pas.promX_time += MPI_Wtime();
-#else
-    time_pas.promX_time += clock();
-#endif
+    time_pas.promX_time += ops_pas->GetWtime();
 #endif
 	return;
 }
 static void ComputeN(void **ritz_vec, void *A, void *B, double *ss_eval)
 {
 #if TIME_PAS
-#if USE_MPI
-    time_pas.compN_time -= MPI_Wtime();
-#else
-    time_pas.compN_time -= clock();
-#endif
+    time_pas.compN_time -= ops_pas->GetWtime();
 #endif
 	int start[2], end[2];
 	/* set b */
@@ -420,22 +384,14 @@ static void ComputeN(void **ritz_vec, void *A, void *B, double *ss_eval)
 	ops_pas->app_ops->MultiVecView(ritz_vec,start[1],end[1],ops_pas->app_ops);
 #endif
 #if TIME_PAS
-#if USE_MPI
-    time_pas.compN_time += MPI_Wtime();
-#else
-    time_pas.compN_time += clock();
-#endif
+    time_pas.compN_time += ops_pas->GetWtime();
 #endif
 	return;
 }
 static void OrthXtoQ(PASVEC *ss_evec, void **P, void **B, void **ritz_vec)
 {
 #if TIME_PAS
-#if USE_MPI
-    time_pas.orthX_time -= MPI_Wtime();
-#else
-    time_pas.orthX_time -= clock();
-#endif
+    time_pas.orthX_time -= ops_pas->GetWtime();
 #endif
 	void **X  = ss_evec->q[level];
 	void **x  = ss_evec->q[level_aux];
@@ -570,11 +526,7 @@ static void OrthXtoQ(PASVEC *ss_evec, void **P, void **B, void **ritz_vec)
 	ops_pas->app_ops->MultiVecView(X, 0, sizeX, ops_pas);
 #endif
 #if TIME_PAS
-#if USE_MPI
-    time_pas.orthX_time += MPI_Wtime();
-#else
-    time_pas.orthX_time += clock();
-#endif
+    time_pas.orthX_time += ops_pas->GetWtime();
 #endif
 	return;
 }
@@ -589,7 +541,7 @@ static void PAS(void *A, void *B , double *eval, void **evec,
 	pas_solver = (PASSolver*)ops->eigen_solver_workspace;	
 	pas_solver->nevConv = *nevConv;
 
-	int    nevMax, multiMax, block_size; 
+	int    nevMax, block_size; 
 	int    numIterMax, numIter, nev, numCheck;
 	int    start[2], end[2];
 	void   ***X, **ritz_vec;
@@ -598,8 +550,8 @@ static void PAS(void *A, void *B , double *eval, void **evec,
 
 	ss_eval = eval; ritz_vec = evec;	
 	
-	nevMax     = pas_solver->nevMax    ; multiMax = pas_solver->multiMax; 
-	block_size = pas_solver->block_size; tol      = pas_solver->tol;
+	nevMax     = pas_solver->nevMax    ;
+	block_size = pas_solver->block_size; tol = pas_solver->tol;
 	numIterMax = pas_solver->numIterMax;
 
 	/* 全局变量初始化 */
@@ -750,7 +702,6 @@ static void PAS(void *A, void *B , double *eval, void **evec,
 		+time_pas.orthX_time
 		+time_pas.promX_time;
 	ops_pas->Printf("|checkconv  compN  compRR  compRV  orthX  promX\n");
-#if USE_MPI	
 	ops_pas->Printf("|%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\n",
 		time_pas.checkconv_time,		
 		time_pas.compN_time,		
@@ -758,15 +709,6 @@ static void PAS(void *A, void *B , double *eval, void **evec,
 		time_pas.compRV_time,
 		time_pas.orthX_time,
 		time_pas.promX_time);	   	
-#else	
-	ops_pas->Printf("|%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\n",
-		time_pas.checkconv_time/CLOCKS_PER_SEC,		
-		time_pas.compN_time    /CLOCKS_PER_SEC,		
-		time_pas.compRR_time   /CLOCKS_PER_SEC,		
-		time_pas.compRV_time   /CLOCKS_PER_SEC,
-		time_pas.orthX_time    /CLOCKS_PER_SEC,
-		time_pas.promX_time    /CLOCKS_PER_SEC);	
-#endif
 	ops_pas->Printf("|%.2f%%\t%.2f%%\t%.2f%%\t%.2f%%\t%.2f%%\t%.2f%%\t%.2f%%\n",
 		time_pas.checkconv_time/time_pas.time_total*100,
 		time_pas.compN_time    /time_pas.time_total*100,

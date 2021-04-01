@@ -45,6 +45,9 @@ struct TimeBGS_ time_bgs = {0.0,0.0,0.0,0.0,0.0};
 static void OrthSelf(void **x,int start_x,int *end_x, void *B, int max_reorth,
 		double orth_zero_tol,double reorth_tol,void **mv_ws,double *dbl_ws,struct OPS_ *ops)
 {
+#if DEBUG
+	ops->Printf("start_x = %d, end_x = %d\n", start_x, *end_x);
+#endif
 	if (*end_x<=start_x) return;
 	
 	int    k, start[2], end[2], length, inc, idx, idx_abs_max; 
@@ -54,8 +57,15 @@ static void OrthSelf(void **x,int start_x,int *end_x, void *B, int max_reorth,
 		/* compute r_k */
 		start[0] = k; end[0] = *end_x;
 		start[1] = k; end[1] = k+1;
+#if DEBUG
+		ops->Printf("k = %d, start = %d,%d, end = %d,%d\n", k,start[0],start[1],end[0],end[1]);
+		ops->Printf("r_k = %e\n", *r_k);
+#endif
 		ops->MultiVecQtAP('S','N',x,B,x,0,start,end,
 				r_k,end[0]-start[0],mv_ws,ops);
+#if DEBUG
+		ops->Printf("r_k = %e\n", *r_k);
+#endif
 		*r_k = sqrt(*r_k);
 #if DEBUG
 		ops->Printf("r[%d] = %f, %f\n",k,*r_k, orth_zero_tol);
@@ -239,20 +249,12 @@ static void ModifiedGramSchmidt(void **x, int start_x, int *end_x,
 			ops->Printf("110 befor QtAP (%d, %d)\n", start[0], end[0]);
 #endif
 #if TIME_MGS
-#if USE_MPI
-    		time_mgs.qAp_time -= MPI_Wtime();
-#else
-    		time_mgs.qAp_time -= clock();
-#endif
+    		time_mgs.qAp_time -= ops->GetWtime();
 #endif
 			ops->MultiVecQtAP('S','N',x,B,x,0,start,end,
 					coef,end[0]-start[0],mv_ws,ops);
 #if TIME_MGS
-#if USE_MPI
-        	time_mgs.qAp_time += MPI_Wtime();
-#else
-        	time_mgs.qAp_time += clock();
-#endif
+        	time_mgs.qAp_time += ops->GetWtime();
 #endif 
 
 #if DEBUG
@@ -268,20 +270,12 @@ static void ModifiedGramSchmidt(void **x, int start_x, int *end_x,
 			ops->Printf("121 befor LinearComb (%d, %d)\n", start[0], end[0]);
 #endif
 #if TIME_MGS
-#if USE_MPI
-    		time_mgs.line_comb_time -= MPI_Wtime();
-#else
-    		time_mgs.line_comb_time -= clock();
-#endif
+    		time_mgs.line_comb_time -= ops->GetWtime();
 #endif
 			ops->MultiVecLinearComb(x,x,0,start,end,
 					coef,end[0]-start[0],beta,0,ops);
 #if TIME_MGS
-#if USE_MPI
-        	time_mgs.line_comb_time += MPI_Wtime();
-#else
-        	time_mgs.line_comb_time += clock();
-#endif
+        	time_mgs.line_comb_time += ops->GetWtime();
 #endif 
 
 #if DEBUG
@@ -318,21 +312,13 @@ static void ModifiedGramSchmidt(void **x, int start_x, int *end_x,
 #endif
 
 #if TIME_MGS
-#if USE_MPI
-        time_mgs.orth_self_time -= MPI_Wtime();
-#else
-        time_mgs.orth_self_time -= clock();
-#endif
+        time_mgs.orth_self_time -= ops->GetWtime();
 #endif
 		OrthSelf(x,start[1],&(end[1]),B,
 		      mgs_orth->max_reorth,orth_zero_tol,reorth_tol,
 		      mv_ws,mgs_orth->dbl_ws,ops);	      
 #if TIME_MGS
-#if USE_MPI
-        time_mgs.orth_self_time += MPI_Wtime();
-#else
-        time_mgs.orth_self_time += clock();
-#endif
+        time_mgs.orth_self_time += ops->GetWtime();
 #endif 
 #if DEBUG
 		ops->Printf("after OrthSelf (%d, %d)\n", start[1], end[1]);
@@ -350,19 +336,11 @@ static void ModifiedGramSchmidt(void **x, int start_x, int *end_x,
 #endif
 
 #if TIME_MGS
-#if USE_MPI
-        	time_mgs.axpby_time -= MPI_Wtime();
-#else
-        	time_mgs.axpby_time -= clock();
-#endif
+        	time_mgs.axpby_time -= ops->GetWtime();
 #endif 
 			ops->MultiVecAxpby(1.0,x,0.0,x,start,end,ops);			
 #if TIME_MGS
-#if USE_MPI
-        	time_mgs.axpby_time += MPI_Wtime();
-#else
-        	time_mgs.axpby_time += clock();
-#endif
+        	time_mgs.axpby_time += ops->GetWtime();
 #endif 
 
 #if DEBUG
@@ -383,20 +361,12 @@ static void ModifiedGramSchmidt(void **x, int start_x, int *end_x,
 #endif
 
 #if TIME_MGS
-#if USE_MPI
-        		time_mgs.qAp_time -= MPI_Wtime();
-#else
-        		time_mgs.qAp_time -= clock();
-#endif
+        		time_mgs.qAp_time -= ops->GetWtime();
 #endif
 				ops->MultiVecQtAP('S','N',x,B,x,0,start,end,
 						coef,end[0]-start[0],mv_ws,ops);
 #if TIME_MGS
-#if USE_MPI
-        		time_mgs.qAp_time += MPI_Wtime();
-#else
-        		time_mgs.qAp_time += clock();
-#endif
+        		time_mgs.qAp_time += ops->GetWtime();
 #endif
 #if DEBUG
 				ops->Printf("affer QtAP (%d, %d)\n", start[1], end[1]);
@@ -422,20 +392,12 @@ static void ModifiedGramSchmidt(void **x, int start_x, int *end_x,
 #endif
 
 #if TIME_MGS
-#if USE_MPI
-        		time_mgs.line_comb_time -= MPI_Wtime();
-#else
-        		time_mgs.line_comb_time -= clock();
-#endif
+        		time_mgs.line_comb_time -= ops->GetWtime();
 #endif 
 				ops->MultiVecLinearComb(x,x,0,start,end,
 						coef,end[0]-start[0],beta,0,ops);
 #if TIME_MGS
-#if USE_MPI
-        		time_mgs.line_comb_time += MPI_Wtime();
-#else
-        		time_mgs.line_comb_time += clock();
-#endif
+        		time_mgs.line_comb_time += ops->GetWtime();
 #endif 
 
 #if DEBUG
@@ -467,19 +429,11 @@ static void ModifiedGramSchmidt(void **x, int start_x, int *end_x,
 		+time_mgs.orth_self_time
 		+time_mgs.qAp_time;
 	ops->Printf("|axpby  line_comb  orth_self  qAp\n");
-#if USE_MPI	
 	ops->Printf("|%.2f\t%.2f\t%.2f\t%.2f\n",
 		time_mgs.axpby_time,		
 		time_mgs.line_comb_time,		
 		time_mgs.orth_self_time,		
 		time_mgs.qAp_time);
-#else
-	ops->Printf("|%.2f\t%.2f\t%.2f\t%.2f\n",
-		time_mgs.axpby_time    /CLOCKS_PER_SEC,		
-		time_mgs.line_comb_time/CLOCKS_PER_SEC,		
-		time_mgs.orth_self_time/CLOCKS_PER_SEC,		
-		time_mgs.qAp_time      /CLOCKS_PER_SEC);
-#endif
 	ops->Printf("|%.2f%%\t%.2f%%\t%.2f%%\t%.2f%%\n",
 		time_mgs.axpby_time    /time_mgs.time_total*100,
 		time_mgs.line_comb_time/time_mgs.time_total*100,
@@ -501,8 +455,8 @@ void MultiVecOrthSetup_ModifiedGramSchmidt(
         ops->Printf("MultiVecOrthSetup_ModifiedGramSchmidt (%p, %p)\n", mv_ws, dbl_ws);
 #endif
 	static ModifiedGramSchmidtOrth mgs_orth_static = {
-		.block_size = -1  , .orth_zero_tol = 1e-14, 
-		.max_reorth = 4   , .reorth_tol    = 10*DBL_EPSILON,
+		.block_size = -1  , .orth_zero_tol = 20*DBL_EPSILON,
+		.max_reorth = 4   , .reorth_tol    = 50*DBL_EPSILON,
 		.mv_ws      = NULL, .dbl_ws        = NULL};
 	mgs_orth_static.block_size    = block_size   ;
 	mgs_orth_static.orth_zero_tol = orth_zero_tol;
@@ -527,11 +481,7 @@ static void OrthBinary(void **x,int start_x, int *end_x, void *B, char orth_self
 	double *beta = dbl_ws, *coef = beta+1;
 	if (ncols<=block_size) {
 #if TIME_BGS
-#if USE_MPI
-        time_bgs.orth_self_time -= MPI_Wtime();
-#else
-        time_bgs.orth_self_time -= clock();
-#endif
+        time_bgs.orth_self_time -= ops->GetWtime();
 #endif
 		if (orth_self_method=='E') {
 			OrthSelfEVP(x,start_x,end_x,B,
@@ -542,11 +492,7 @@ static void OrthBinary(void **x,int start_x, int *end_x, void *B, char orth_self
 					max_reorth,orth_zero_tol,reorth_tol,mv_ws,coef,ops);
 		}
 #if TIME_BGS
-#if USE_MPI
-        time_bgs.orth_self_time += MPI_Wtime();
-#else
-        time_bgs.orth_self_time += clock();
-#endif
+        time_bgs.orth_self_time += ops->GetWtime();
 #endif
 	}
 	else {
@@ -562,20 +508,12 @@ static void OrthBinary(void **x,int start_x, int *end_x, void *B, char orth_self
 		/* 去掉 X1 中 X0 的部分 */
 		for (idx = 0; idx < 1+max_reorth; ++idx) {
 #if TIME_BGS
-#if USE_MPI
-        	time_bgs.qAp_time -= MPI_Wtime();
-#else
-        	time_bgs.qAp_time -= clock();
-#endif
+        	time_bgs.qAp_time -= ops->GetWtime();
 #endif
 			ops->MultiVecQtAP('S','N',x,B,x,0,start,end,
 					coef,end[0]-start[0],mv_ws,ops);
 #if TIME_BGS
-#if USE_MPI
-        	time_bgs.qAp_time += MPI_Wtime();
-#else
-        	time_bgs.qAp_time += clock();
-#endif
+        	time_bgs.qAp_time += ops->GetWtime();
 #endif
 
 			length = (end[1] - start[1])*(end[0] - start[0]);
@@ -583,20 +521,12 @@ static void OrthBinary(void **x,int start_x, int *end_x, void *B, char orth_self
 			dscal(&length,beta,coef,&inc);		
 			*beta  = 1.0;
 #if TIME_BGS
-#if USE_MPI
-        	time_bgs.line_comb_time -= MPI_Wtime();
-#else
-        	time_bgs.line_comb_time -= clock();
-#endif
+        	time_bgs.line_comb_time -= ops->GetWtime();
 #endif			
 			ops->MultiVecLinearComb(x,x,0,start,end,
 					coef,end[0]-start[0],beta,0,ops);
 #if TIME_BGS
-#if USE_MPI
-        	time_bgs.line_comb_time += MPI_Wtime();
-#else
-        	time_bgs.line_comb_time += clock();
-#endif
+        	time_bgs.line_comb_time += ops->GetWtime();
 #endif			
 
 			idx_abs_max = idamax(&length,coef,&inc);
@@ -621,19 +551,11 @@ static void OrthBinary(void **x,int start_x, int *end_x, void *B, char orth_self
 		start[0] = end[0]   - length;
 		end[1]   = start[1] + length;
 #if TIME_BGS
-#if USE_MPI
-        time_bgs.axpby_time -= MPI_Wtime();
-#else
-        time_bgs.axpby_time -= clock();
-#endif
+        time_bgs.axpby_time -= ops->GetWtime();
 #endif 
 		ops->MultiVecAxpby(1.0,x,0.0,x,start,end,ops);
 #if TIME_BGS
-#if USE_MPI
-        time_bgs.axpby_time += MPI_Wtime();
-#else
-        time_bgs.axpby_time += clock();
-#endif
+        time_bgs.axpby_time += ops->GetWtime();
 #endif				
 	}
 	return;
@@ -666,40 +588,24 @@ static void BinaryGramSchmidt(void **x, int start_x, int *end_x,
 		coef     = beta+1; 
 		for (idx = 0; idx < 1+bgs_orth->max_reorth; ++idx) {
 #if TIME_BGS
-#if USE_MPI
-        	time_bgs.qAp_time -= MPI_Wtime();
-#else
-        	time_bgs.qAp_time -= clock();
-#endif
+        	time_bgs.qAp_time -= ops->GetWtime();
 #endif
 			ops->MultiVecQtAP('S','N',x,B,x,0,start,end,
 					coef,end[0]-start[0],mv_ws,ops);
 #if TIME_BGS
-#if USE_MPI
-        	time_bgs.qAp_time += MPI_Wtime();
-#else
-        	time_bgs.qAp_time += clock();
-#endif
+        	time_bgs.qAp_time += ops->GetWtime();
 #endif
 			length = (end[1] - start[1])*(end[0] - start[0]); 
 			*beta  = -1.0; inc = 1;
 			dscal(&length,beta,coef,&inc);		
 			*beta  = 1.0;
 #if TIME_BGS
-#if USE_MPI
-        	time_bgs.line_comb_time -= MPI_Wtime();
-#else
-        	time_bgs.line_comb_time -= clock();
-#endif
+        	time_bgs.line_comb_time -= ops->GetWtime();
 #endif
 			ops->MultiVecLinearComb(x,x,0,start,end,
 					coef,end[0]-start[0],beta,0,ops);
 #if TIME_BGS
-#if USE_MPI
-        	time_bgs.line_comb_time += MPI_Wtime();
-#else
-        	time_bgs.line_comb_time += clock();
-#endif
+        	time_bgs.line_comb_time += ops->GetWtime();
 #endif		
 
 			idx_abs_max = idamax(&length,coef,&inc);
@@ -742,19 +648,11 @@ static void BinaryGramSchmidt(void **x, int start_x, int *end_x,
 		+time_bgs.orth_self_time
 		+time_bgs.qAp_time;
 	ops->Printf("|axpby  line_comb  orth_self  qAp\n");
-#if USE_MPI	
 	ops->Printf("|%.2f\t%.2f\t%.2f\t%.2f\n",
 		time_bgs.axpby_time,		
 		time_bgs.line_comb_time,		
 		time_bgs.orth_self_time,		
 		time_bgs.qAp_time);
-#else
-	ops->Printf("|%.2f\t%.2f\t%.2f\t%.2f\n",
-		time_bgs.axpby_time    /CLOCKS_PER_SEC,		
-		time_bgs.line_comb_time/CLOCKS_PER_SEC,		
-		time_bgs.orth_self_time/CLOCKS_PER_SEC,		
-		time_bgs.qAp_time      /CLOCKS_PER_SEC);
-#endif
 	ops->Printf("|%.2f%%\t%.2f%%\t%.2f%%\t%.2f%%\n",
 		time_bgs.axpby_time    /time_bgs.time_total*100,
 		time_bgs.line_comb_time/time_bgs.time_total*100,
@@ -774,8 +672,8 @@ void MultiVecOrthSetup_BinaryGramSchmidt(
 		void **mv_ws, double *dbl_ws, struct OPS_ *ops)
 {
 	static BinaryGramSchmidtOrth bgs_orth_static = {
-		.block_size = 4   , .orth_zero_tol = 1e-14, 
-		.max_reorth = 4   , .reorth_tol    = 10*DBL_EPSILON,
+		.block_size = 16  , .orth_zero_tol = 20*DBL_EPSILON, 
+		.max_reorth = 4   , .reorth_tol    = 50*DBL_EPSILON,
 		.mv_ws      = NULL, .dbl_ws        = NULL};
 	bgs_orth_static.block_size    = block_size   ;
 	bgs_orth_static.orth_zero_tol = orth_zero_tol;

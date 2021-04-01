@@ -171,21 +171,13 @@ void BlockPCG(void *mat, void **mv_b, void **mv_x,
 	/* 计算 norm of rhs */
 	if (0 == strcmp("rel", bpcg->tol_type)) {		
 #if TIME_BPCG
-#if USE_MPI
-        time_bpcg.innerprod_time -= MPI_Wtime();
-#else
-        time_bpcg.innerprod_time -= clock();
-#endif
+        time_bpcg.innerprod_time -= ops->GetWtime();
 #endif 
 		start[0] = start_bx[0]; end[0] = end_bx[0];
 		start[1] = start_bx[0]; end[1] = end_bx[0];
 		ops->MultiVecInnerProd('D',mv_b,mv_b,0,start,end,norm_b,1,ops);
 #if TIME_BPCG
-#if USE_MPI
-        time_bpcg.innerprod_time += MPI_Wtime();
-#else
-        time_bpcg.innerprod_time += clock();
-#endif
+        time_bpcg.innerprod_time += ops->GetWtime();
 #endif 
 		for (idx = 0; idx < num_unconv; ++idx) {
 			norm_b[idx] = sqrt(norm_b[idx]);
@@ -205,58 +197,40 @@ void BlockPCG(void *mat, void **mv_b, void **mv_x,
 	}
 	
 #if TIME_BPCG
-#if USE_MPI
-    time_bpcg.matvec_time -= MPI_Wtime();
-#else
-    time_bpcg.matvec_time -= clock();
-#endif
+    time_bpcg.matvec_time -= ops->GetWtime();
 #endif 
 	/* 计算初始残量 */
 	start[0] = start_bx[1]; end[0] = end_bx[1] ;
 	start[1] = 0          ; end[1] = num_unconv;
-	ops->MatDotMultiVec(mat,mv_x,mv_r,start,end,ops);
+	if (bpcg->MatDotMultiVec!=NULL) {
+		bpcg->MatDotMultiVec(mv_x,mv_r,start,end,mv_p,0,ops);
+	}
+	else {
+		ops->MatDotMultiVec(mat,mv_x,mv_r,start,end,ops);
+	}
+		
 #if TIME_BPCG
-#if USE_MPI
-    time_bpcg.matvec_time += MPI_Wtime();
-#else
-    time_bpcg.matvec_time += clock();
-#endif
+    time_bpcg.matvec_time += ops->GetWtime();
 #endif 
 	
 #if TIME_BPCG
-#if USE_MPI
-    time_bpcg.axpby_time -= MPI_Wtime();
-#else
-    time_bpcg.axpby_time -= clock();
-#endif
+    time_bpcg.axpby_time -= ops->GetWtime();
 #endif	
 	start[0] = start_bx[0]; end[0] = end_bx[0] ;
 	start[1] = 0          ; end[1] = num_unconv;
 	ops->MultiVecAxpby(1.0,mv_b,-1.0,mv_r,start,end,ops);
 #if TIME_BPCG
-#if USE_MPI
-    time_bpcg.axpby_time += MPI_Wtime();
-#else
-    time_bpcg.axpby_time += clock();
-#endif
+    time_bpcg.axpby_time += ops->GetWtime();
 #endif
 
 #if TIME_BPCG
-#if USE_MPI
-    time_bpcg.innerprod_time -= MPI_Wtime();
-#else
-    time_bpcg.innerprod_time -= clock();
-#endif
+    time_bpcg.innerprod_time -= ops->GetWtime();
 #endif 
 	start[0] = 0          ; end[0] = num_unconv;
 	start[1] = 0          ; end[1] = num_unconv;
 	ops->MultiVecInnerProd('D',mv_r,mv_r,0,start,end,rho2,1,ops);
 #if TIME_BPCG
-#if USE_MPI
-    time_bpcg.innerprod_time += MPI_Wtime();
-#else
-    time_bpcg.innerprod_time += clock();
-#endif
+    time_bpcg.innerprod_time += ops->GetWtime();
 #endif 
 	for (idx = 0; idx < num_unconv; ++idx) {
 		init_res[idx] = sqrt(rho2[idx]);
@@ -299,68 +273,50 @@ void BlockPCG(void *mat, void **mv_b, void **mv_x,
 				else           beta = rho2[col]/rho1[col];
 				
 #if TIME_BPCG
-#if USE_MPI
-    			time_bpcg.axpby_time -= MPI_Wtime();
-#else
-    			time_bpcg.axpby_time -= clock();
-#endif
+    			time_bpcg.axpby_time -= ops->GetWtime();
 #endif
 				start[0] = unconv[col]; end[0] = unconv[col]+1;
 				start[1] = unconv[col]; end[1] = unconv[col]+1;
 				ops->MultiVecAxpby(1.0,mv_r,beta,mv_p,start,end,ops);
 #if TIME_BPCG
-#if USE_MPI
-    			time_bpcg.axpby_time += MPI_Wtime();
-#else
-    			time_bpcg.axpby_time += clock();
-#endif
+    			time_bpcg.axpby_time += ops->GetWtime();
 #endif
 			}
 #if TIME_BPCG
-#if USE_MPI
-    		time_bpcg.matvec_time -= MPI_Wtime();
-#else
-    		time_bpcg.matvec_time -= clock();
-#endif
+    		time_bpcg.matvec_time -= ops->GetWtime();
 #endif
 			//compute the vector w = A*p
 			start[0] = unconv[block[idx]]; end[0] = unconv[block[idx+1]-1]+1;
 			start[1] = unconv[block[idx]]; end[1] = unconv[block[idx+1]-1]+1;
-			ops->MatDotMultiVec(mat,mv_p,mv_w,start,end,ops);
+			if (bpcg->MatDotMultiVec!=NULL) {
+				bpcg->MatDotMultiVec(mv_p,mv_w,start,end,mv_b,start_bx[0],ops);
+			}
+			else {
+				ops->MatDotMultiVec(mat,mv_p,mv_w,start,end,ops);
+			}
+			
 #if TIME_BPCG
-#if USE_MPI
-    		time_bpcg.matvec_time += MPI_Wtime();
-#else
-    		time_bpcg.matvec_time += clock();
-#endif
+    		time_bpcg.matvec_time += ops->GetWtime();
 #endif
 
 #if TIME_BPCG
-#if USE_MPI
-    		time_bpcg.innerprod_time -= MPI_Wtime();
-#else
-    		time_bpcg.innerprod_time -= clock();
-#endif
+    		time_bpcg.innerprod_time -= ops->GetWtime();
 #endif	
 			//compute the value pTw = p^T * w 
 			ops->MultiVecLocalInnerProd('D',mv_p,mv_w,0,start,end,destin,1,ops);
 #if TIME_BPCG
-#if USE_MPI
-    		time_bpcg.innerprod_time += MPI_Wtime();
-#else
-    		time_bpcg.innerprod_time += clock();
-#endif
+    		time_bpcg.innerprod_time += ops->GetWtime();
 #endif
 			destin += length;
 		}
 
-#if USE_MPI
+#if OPS_USE_MPI
 #if TIME_BPCG
-    	time_bpcg.allreduce_time -= MPI_Wtime();
+    	time_bpcg.allreduce_time -= ops->GetWtime();
 #endif
 		MPI_Allreduce(MPI_IN_PLACE,pTw,num_unconv,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
 #if TIME_BPCG
-    	time_bpcg.allreduce_time += MPI_Wtime();
+    	time_bpcg.allreduce_time += ops->GetWtime();
 #endif
 #endif
 
@@ -375,11 +331,7 @@ void BlockPCG(void *mat, void **mv_b, void **mv_x,
 				//compute the value of alpha
 				alpha = rho2[col]/pTw[col];
 #if TIME_BPCG
-#if USE_MPI
-    			time_bpcg.axpby_time -= MPI_Wtime();
-#else
-    			time_bpcg.axpby_time -= clock();
-#endif
+    			time_bpcg.axpby_time -= ops->GetWtime();
 #endif
 				//compute the new solution x = alpha * p + x
 				start[0] = unconv[col]; end[0] = unconv[col]+1;
@@ -391,40 +343,28 @@ void BlockPCG(void *mat, void **mv_b, void **mv_x,
 				start[1] = unconv[col]; end[1] = unconv[col]+1;
 				ops->MultiVecAxpby(-alpha,mv_w,1.0,mv_r,start,end,ops);
 #if TIME_BPCG
-#if USE_MPI
-    			time_bpcg.axpby_time += MPI_Wtime();
-#else
-    			time_bpcg.axpby_time += clock();
-#endif
+    			time_bpcg.axpby_time += ops->GetWtime();
 #endif
 			}
 #if TIME_BPCG
-#if USE_MPI
-    		time_bpcg.innerprod_time -= MPI_Wtime();
-#else
-    		time_bpcg.innerprod_time -= clock();
-#endif
+    		time_bpcg.innerprod_time -= ops->GetWtime();
 #endif
 			//compute the new rho2
 			start[0] = unconv[block[idx]]; end[0] = unconv[block[idx+1]-1]+1;
 			start[1] = unconv[block[idx]]; end[1] = unconv[block[idx+1]-1]+1;
 			ops->MultiVecLocalInnerProd('D',mv_r,mv_r,0,start,end,destin,1,ops);
 #if TIME_BPCG
-#if USE_MPI
-    		time_bpcg.innerprod_time += MPI_Wtime();
-#else
-    		time_bpcg.innerprod_time += clock();
-#endif
+    		time_bpcg.innerprod_time += ops->GetWtime();
 #endif	
 			destin += length;
 		}
-#if USE_MPI
+#if OPS_USE_MPI
 #if TIME_BPCG
-    	time_bpcg.allreduce_time -= MPI_Wtime();
+    	time_bpcg.allreduce_time -= ops->GetWtime();
 #endif
 		MPI_Allreduce(MPI_IN_PLACE,rho2,num_unconv,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
 #if TIME_BPCG
-    	time_bpcg.allreduce_time += MPI_Wtime();
+    	time_bpcg.allreduce_time += ops->GetWtime();
 #endif
 #endif
 		for (idx = 0; idx < num_unconv; ++idx) {
@@ -476,19 +416,11 @@ void BlockPCG(void *mat, void **mv_b, void **mv_x,
 		+time_bpcg.innerprod_time
 		+time_bpcg.matvec_time;
 	ops->Printf("|allreduce  axpby  inner_prod  matvec\n");
-#if USE_MPI	
 	ops->Printf("|%.2f\t%.2f\t%.2f\t%.2f\n",
 		time_bpcg.allreduce_time,		
 		time_bpcg.axpby_time,		
 		time_bpcg.innerprod_time,		
 		time_bpcg.matvec_time);
-#else
-	ops->Printf("|%.2f\t%.2f\t%.2f\t%.2f\n",
-		time_bpcg.allreduce_time/CLOCKS_PER_SEC,		
-		time_bpcg.axpby_time    /CLOCKS_PER_SEC,		
-		time_bpcg.innerprod_time/CLOCKS_PER_SEC,		
-		time_bpcg.matvec_time   /CLOCKS_PER_SEC);
-#endif
 	ops->Printf("|%.2f%%\t%.2f%%\t%.2f%%\t%.2f%%\n",
 		time_bpcg.allreduce_time/time_bpcg.time_total*100,
 		time_bpcg.axpby_time    /time_bpcg.time_total*100,
@@ -506,12 +438,13 @@ void BlockPCG(void *mat, void **mv_b, void **mv_x,
 	      
 void MultiLinearSolverSetup_BlockPCG(int max_iter, double rate, double tol,
 		const char *tol_type, void **mv_ws[3], double *dbl_ws, int *int_ws,
-		void *pc, struct OPS_ *ops)
+		void *pc, void (*MatDotMultiVec)(void**x,void**y,int*,int*,void **z,int s,struct OPS_*),
+		struct OPS_ *ops)
 {
 	/* 只初始化一次，且全局可见 */
 	static BlockPCGSolver bpcg_static = {
 		.max_iter = 50, .rate = 1e-2, .tol=1e-12, .tol_type = "abs", 
-		.mv_ws    = {}, .pc = NULL};
+		.mv_ws    = {}, .pc = NULL, .MatDotMultiVec = NULL};
 	bpcg_static.max_iter = max_iter;
 	bpcg_static.rate     = rate    ;
 	bpcg_static.tol      = tol     ;
@@ -521,6 +454,8 @@ void MultiLinearSolverSetup_BlockPCG(int max_iter, double rate, double tol,
 	bpcg_static.mv_ws[2] = mv_ws[2];
 	bpcg_static.dbl_ws   = dbl_ws  ;
 	bpcg_static.int_ws   = int_ws  ;
+	bpcg_static.MatDotMultiVec = MatDotMultiVec;
+	
 	bpcg_static.niter    = 0   ;
 	bpcg_static.residual = -1.0;
 
@@ -531,7 +466,9 @@ void MultiLinearSolverSetup_BlockPCG(int max_iter, double rate, double tol,
 static void BlockAlgebraicMultiGrid(int current_level, 
 		void **mv_b, void **mv_x, int *start_bx, int *end_bx, struct OPS_ *ops)
 {
+#if DEBUG
 	ops->Printf("current level = %d\n",current_level);
+#endif
 	BlockAMGSolver *bamg = (BlockAMGSolver *)ops->multi_linear_solver_workspace;
 	void(*multi_linear_sol)(void*,void**,void**,int*,int*,struct OPS_*);
 	multi_linear_sol = ops->MultiLinearSolver;	
@@ -548,7 +485,7 @@ static void BlockAlgebraicMultiGrid(int current_level,
    	MultiLinearSolverSetup_BlockPCG(
 			bamg->max_iter[current_level*2+1],bamg->rate[current_level], 
 			bamg->tol[current_level],bamg->tol_type,
-			mv_ws,bamg->dbl_ws,bamg->int_ws,NULL,ops);
+			mv_ws,bamg->dbl_ws,bamg->int_ws,NULL,NULL,ops);
 #if DEBUG
 	int idx;
 	for (idx = 0; idx <= current_level; ++idx) ops->Printf("--");
@@ -560,19 +497,11 @@ static void BlockAlgebraicMultiGrid(int current_level,
 #endif
 
 #if TIME_BAMG
-#if USE_MPI
-    time_bamg.bpcg_time -= MPI_Wtime();
-#else
-    time_bamg.bpcg_time -= clock();
-#endif
+    time_bamg.bpcg_time -= ops->GetWtime();
 #endif
    	ops->MultiLinearSolver(A,mv_b,mv_x,start_bx,end_bx,ops);
 #if TIME_BAMG
-#if USE_MPI
-    time_bamg.bpcg_time += MPI_Wtime();
-#else
-    time_bamg.bpcg_time += clock();
-#endif
+    time_bamg.bpcg_time += ops->GetWtime();
 #endif
    	
    	
@@ -582,11 +511,7 @@ static void BlockAlgebraicMultiGrid(int current_level,
 #endif
 	if( current_level < coarsest_level ) {
 #if TIME_BAMG
-#if USE_MPI
-    	time_bamg.matvec_time -= MPI_Wtime();
-#else
-    	time_bamg.matvec_time -= clock();
-#endif
+    	time_bamg.matvec_time -= ops->GetWtime();
 #endif   	
 	    //计算residual = b - A*x  
 	    start[0] = start_bx[1]; end[0] = end_bx[1] ;
@@ -594,37 +519,21 @@ static void BlockAlgebraicMultiGrid(int current_level,
 	    mv_r = bamg->mv_array_ws[2][current_level];
 	    ops->MatDotMultiVec(A,mv_x,mv_r,start,end,ops);
 #if TIME_BAMG
-#if USE_MPI
-    	time_bamg.matvec_time += MPI_Wtime();
-#else
-    	time_bamg.matvec_time += clock();
-#endif
+    	time_bamg.matvec_time += ops->GetWtime();
 #endif
 
 #if TIME_BAMG
-#if USE_MPI
-    	time_bamg.axpby_time -= MPI_Wtime();
-#else
-    	time_bamg.axpby_time -= clock();
-#endif
+    	time_bamg.axpby_time -= ops->GetWtime();
 #endif 
 	    start[0] = start_bx[0]; end[0] = end_bx[0] ;
 	    start[1] = 0          ; end[1] = block_size;
 	    ops->MultiVecAxpby(1.0,mv_b,-1.0,mv_r,start,end,ops);
 #if TIME_BAMG
-#if USE_MPI
-    	time_bamg.axpby_time += MPI_Wtime();
-#else
-    	time_bamg.axpby_time += clock();
-#endif
+    	time_bamg.axpby_time += ops->GetWtime();
 #endif
 
 #if TIME_BAMG
-#if USE_MPI
-    	time_bamg.fromitoj_time -= MPI_Wtime();
-#else
-    	time_bamg.fromitoj_time -= clock();
-#endif
+    	time_bamg.fromitoj_time -= ops->GetWtime();
 #endif 
 	    // 把residual投影到粗网格
 	    coarse_level = current_level + 1;
@@ -635,11 +544,7 @@ static void BlockAlgebraicMultiGrid(int current_level,
 	    ops->MultiVecFromItoJ(bamg->P_array,current_level,coarse_level, 
 				mv_r,coarse_b,start,end,bamg->mv_array_ws[4],ops);
 #if TIME_BAMG
-#if USE_MPI
-    	time_bamg.fromitoj_time += MPI_Wtime();
-#else
-    	time_bamg.fromitoj_time += clock();
-#endif
+    	time_bamg.fromitoj_time += ops->GetWtime();
 #endif
    
 #if DEBUG
@@ -652,20 +557,12 @@ static void BlockAlgebraicMultiGrid(int current_level,
 #endif
 
 #if TIME_BAMG
-#if USE_MPI
-    	time_bamg.axpby_time -= MPI_Wtime();
-#else
-    	time_bamg.axpby_time -= clock();
-#endif
+    	time_bamg.axpby_time -= ops->GetWtime();
 #endif
 	    // 先给coarse_x赋初值0	    
 	    ops->MultiVecAxpby(0.0,NULL,0.0,coarse_x,start,end,ops);
 #if TIME_BAMG
-#if USE_MPI
-    	time_bamg.axpby_time += MPI_Wtime();
-#else
-    	time_bamg.axpby_time += clock();
-#endif
+    	time_bamg.axpby_time += ops->GetWtime();
 #endif
 
 	    // 求粗网格解问题，利用递归	
@@ -674,21 +571,13 @@ static void BlockAlgebraicMultiGrid(int current_level,
 		
 		
 #if TIME_BAMG
-#if USE_MPI
-    	time_bamg.fromitoj_time -= MPI_Wtime();
-#else
-    	time_bamg.fromitoj_time -= clock();
-#endif
+    	time_bamg.fromitoj_time -= ops->GetWtime();
 #endif			
 	    // 把粗网格上的解插值到细网格，再加到前光滑得到的近似解上
 	    ops->MultiVecFromItoJ(bamg->P_array,coarse_level,current_level, 
 				coarse_x,mv_r,start,end,bamg->mv_array_ws[4],ops);
 #if TIME_BAMG
-#if USE_MPI
-    	time_bamg.fromitoj_time += MPI_Wtime();
-#else
-    	time_bamg.fromitoj_time += clock();
-#endif
+    	time_bamg.fromitoj_time += ops->GetWtime();
 #endif
 				
 				
@@ -706,19 +595,11 @@ static void BlockAlgebraicMultiGrid(int current_level,
 #endif
 
 #if TIME_BAMG
-#if USE_MPI
-    	time_bamg.axpby_time -= MPI_Wtime();
-#else
-    	time_bamg.axpby_time -= clock();
-#endif
+    	time_bamg.axpby_time -= ops->GetWtime();
 #endif
 	    ops->MultiVecAxpby(1.0,mv_r,1.0,mv_x,start,end,ops);
 #if TIME_BAMG
-#if USE_MPI
-    	time_bamg.axpby_time += MPI_Wtime();
-#else
-    	time_bamg.axpby_time += clock();
-#endif
+    	time_bamg.axpby_time += ops->GetWtime();
 #endif		
 		
 							
@@ -730,7 +611,7 @@ static void BlockAlgebraicMultiGrid(int current_level,
 	    MultiLinearSolverSetup_BlockPCG(
 				bamg->max_iter[current_level*2+2],bamg->rate[current_level], 
 				bamg->tol[current_level],bamg->tol_type,
-				mv_ws,bamg->dbl_ws,bamg->int_ws,NULL,ops);
+				mv_ws,bamg->dbl_ws,bamg->int_ws,NULL,NULL,ops);
 #if DEBUG
 		ops->Printf("---initi solver ------------\n");
 		ops->MultiVecView(mv_x,start_bx[1],end_bx[1],ops);
@@ -741,19 +622,11 @@ static void BlockAlgebraicMultiGrid(int current_level,
 #endif
 
 #if TIME_BAMG
-#if USE_MPI
-    	time_bamg.bpcg_time -= MPI_Wtime();
-#else
-    	time_bamg.bpcg_time -= clock();
-#endif
+    	time_bamg.bpcg_time -= ops->GetWtime();
 #endif
 	    ops->MultiLinearSolver(A,mv_b,mv_x,start_bx,end_bx,ops);
 #if TIME_BAMG
-#if USE_MPI
-    	time_bamg.bpcg_time += MPI_Wtime();
-#else
-    	time_bamg.bpcg_time += clock();
-#endif
+    	time_bamg.bpcg_time += ops->GetWtime();
 #endif		
 			   	
 #if DEBUG
@@ -780,7 +653,9 @@ static void BlockAMG(void *mat, void **mv_b, void **mv_x,
 	BlockAMGSolver *bamg = (BlockAMGSolver *)ops->multi_linear_solver_workspace;
 	for (idx = 0; idx < bamg->max_iter[0]; ++idx) {
 		BlockAlgebraicMultiGrid(0,mv_b,mv_x,start_bx,end_bx,ops);
+#if DEBUG
 		ops->Printf("BlockAMG: niter = %d, residual = %6.4e\n",idx+1,bamg->residual);
+#endif
 		if (bamg->residual<bamg->tol[0]) break;
 	}
 #if TIME_BAMG
@@ -790,19 +665,11 @@ static void BlockAMG(void *mat, void **mv_b, void **mv_x,
 		+time_bamg.fromitoj_time
 		+time_bamg.matvec_time;
 	ops->Printf("|axpby  bpcg  fromitoj  matvec\n");	
-#if USE_MPI		
 	ops->Printf("|%.2f\t%.2f\t%.2f\t%.2f\n",	
 		time_bamg.axpby_time,		
 		time_bamg.bpcg_time,		
 		time_bamg.fromitoj_time,		
 		time_bamg.matvec_time);	
-#else
-	ops->Printf("|%.2f\t%.2f\t%.2f\t%.2f\n",	
-		time_bamg.axpby_time   /CLOCKS_PER_SEC,		
-		time_bamg.bpcg_time    /CLOCKS_PER_SEC,		
-		time_bamg.fromitoj_time/CLOCKS_PER_SEC,		
-		time_bamg.matvec_time  /CLOCKS_PER_SEC);		
-#endif
 	ops->Printf("|%.2f%%\t%.2f%%\t%.2f%%\t%.2f%%\n",
 		time_bamg.axpby_time   /time_bamg.time_total*100,
 		time_bamg.bpcg_time    /time_bamg.time_total*100,

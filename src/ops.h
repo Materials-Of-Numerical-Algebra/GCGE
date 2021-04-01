@@ -14,11 +14,11 @@
 
 #include "ops_config.h"
 
-#if USE_OMP
+#if OPS_USE_OMP
 #include <omp.h>
 #endif
 
-#if USE_MPI
+#if OPS_USE_MPI
 #include <mpi.h>
 
 extern double *debug_ptr;
@@ -35,8 +35,9 @@ int SplitDoubleArray(double *destin, int length,
 	double *dbl_ws, int *int_ws);
 
 typedef struct OPS_ {
-	void (*Printf) (const char *fmt, ...);
-	int  (*GetOptionFromCommandLine) (
+	void   (*Printf) (const char *fmt, ...);
+	double (*GetWtime) (void);
+	int    (*GetOptionFromCommandLine) (
 			const char *name, char type, void *data,
 			int argc, char* argv[], struct OPS_ *ops);	  
 	void (*MatView) (void *mat, struct OPS_ *ops);  
@@ -147,6 +148,7 @@ void OPS_Destroy (OPS **ops);
 
 /* multi-vec */
 void DefaultPrintf (const char *fmt, ...);
+double DefaultGetWtime (void);
 int  DefaultGetOptionFromCommandLine (
 		const char *name, char type, void *value,
 		int argc, char* argv[], struct OPS_ *ops);

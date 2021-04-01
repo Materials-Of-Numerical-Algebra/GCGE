@@ -19,7 +19,7 @@
 
 /* GCG 的结构体 */
 typedef struct GCGSolver_ {
-	void   *A        ; void  *B      ;
+	void   *A        ; void  *B      ; double sigma;
 	double *eval     ; void  **evec  ; 
 	int    nevMax    ; int   multiMax; double gapMin;
 	int    nevInit   ; int   nevGiven; int    nevConv;
@@ -44,6 +44,8 @@ typedef struct GCGSolver_ {
 	int  compW_orth_max_reorth; double compW_orth_zero_tol;
 	int  compW_cg_max_iter    ; double compW_cg_rate; 
 	double compW_cg_tol       ; char   compW_cg_tol_type[8];
+	int  compW_cg_auto_shift  ; double compW_cg_shift;
+	int  compW_cg_order       ;
 	int    compRR_min_num     ; double compRR_min_gap; 
 	double compRR_tol; /*tol for dsyevx_ */	
 } GCGSolver;
@@ -73,7 +75,7 @@ void EigenSolverSetParameters_GCG(
 	const char *compP_orth_method, int compP_orth_block_size, int compP_orth_max_reorth, double compP_orth_zero_tol,
 	const char *compW_orth_method, int compW_orth_block_size, int compW_orth_max_reorth, double compW_orth_zero_tol,
 	int    compW_cg_max_iter , double compW_cg_rate, 
-	double compW_cg_tol      , const char *compW_cg_tol_type,
+	double compW_cg_tol      , const char *compW_cg_tol_type, int compW_cg_with_shift  ,
 	int    compRR_min_num, double compRR_min_gap, double compRR_tol, 
 	struct OPS_ *ops);
 
