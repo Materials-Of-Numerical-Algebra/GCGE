@@ -15,7 +15,7 @@
 #include	"ops.h"
 #include	"app_lapack.h"
 
-#if USE_HYPRE
+#if OPS_USE_HYPRE
 
 #include "_hypre_utilities.h"
 #include "_hypre_parcsr_ls.h"

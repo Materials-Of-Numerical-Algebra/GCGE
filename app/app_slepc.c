@@ -18,7 +18,7 @@
  
 #include	"app_slepc.h"
 
-#if USE_SLEPC
+#if OPS_USE_SLEPC
 #define DEBUG 0
 
 
@@ -157,30 +157,51 @@ static void MatDotMultiVec (Mat mat, BV x,
 {
 #if DEBUG
 	int n, N, m;
-	MatGetSize(mat, &N, &m);
-	PetscPrintf(PETSC_COMM_WORLD, "mat global, N = %d, m = %d\n", N, m);
-	MatGetLocalSize(mat, &n, &m);
-	PetscPrintf(PETSC_COMM_WORLD, "mat local , n = %d, m = %d\n", n, m);
+	if (mat!=NULL) {
+		MatGetSize(mat, &N, &m);
+		PetscPrintf(PETSC_COMM_WORLD, "mat global, N = %d, m = %d\n", N, m);
+		MatGetLocalSize(mat, &n, &m);
+		PetscPrintf(PETSC_COMM_WORLD, "mat local , n = %d, m = %d\n", n, m);
+	}
 	BVGetSizes(x, &n, &N, &m);
 	PetscPrintf(PETSC_COMM_WORLD, "x local n = %d, global N = %d, ncols = %d\n", n, N, m);
 	BVGetSizes(y, &n, &N, &m);
 	PetscPrintf(PETSC_COMM_WORLD, "y local n = %d, global N = %d, ncols = %d\n", n, N, m);
+	ops->Printf("%d,%d, %d,%d\n", start[0],end[0],start[1],end[1]);
 #endif
+      
 	assert(end[0]-start[0]==end[1]-start[1]);
 	int nrows_x, nrows_y;
 	BVGetSizes(x, &nrows_x, NULL, NULL);
 	BVGetSizes(y, &nrows_y, NULL, NULL);
+
 	if (nrows_x==nrows_y) {
 		if (mat==NULL) {
 			MultiVecAxpby(1.0, x, 0.0, y, start, end, ops);
 		}
 		else {
-			BVSetActiveColumns(x,start[0],end[0]);
-			BVSetActiveColumns(y,start[1],end[1]);
-			BVMatMult(x,mat,y);
+			if (1) {
+				Vec vec_x, vec_y;      
+				int ncols = end[1]-start[1], col;
+				for (col = 0; col < ncols; ++col) {
+					BVGetColumn(x, start[0]+col, &vec_x);
+					BVGetColumn(y, start[1]+col, &vec_y);
+					MatMult(mat, vec_x, vec_y); 
+					BVRestoreColumn(x, start[0]+col, &vec_x);
+					BVRestoreColumn(y, start[1]+col, &vec_y);
+				}
+			}
+			else {
+				/* sometimes Active does not work */
+				assert(x!=y);
+				BVSetActiveColumns(x,start[0],end[0]);
+				BVSetActiveColumns(y,start[1],end[1]);
+				BVMatMult(x,mat,y);
+			}
 		}
 	}
 	else {
+		assert(mat!=NULL);
 		Vec vec_x, vec_y;      
 		int ncols = end[1]-start[1], col;
 		for (col = 0; col < ncols; ++col) {
@@ -489,7 +510,7 @@ static void SLEPC_MultiVecQtAP (char ntsA, char nsdQAP,
 	}	
 	return;
 }
-void SLEPC_MultiVecInnerProd      (char nsdIP, void **x, void **y, int is_vec, int *start, int *end, 
+static void SLEPC_MultiVecInnerProd      (char nsdIP, void **x, void **y, int is_vec, int *start, int *end, 
 	double *inner_prod, int ldIP, struct OPS_ *ops)
 {
 	if ( nsdIP=='D' || ( x==y&&(start[0]!=start[1]||end[0]!=end[1]) ) ) {
@@ -532,7 +553,7 @@ void SLEPC_MultiVecInnerProd      (char nsdIP, void **x, void **y, int is_vec, i
 
 
 
-int SLEPC_GetOptionFromCommandLine (
+static int SLEPC_GetOptionFromCommandLine (
 		const char *name, char type, void *value,
 		int argc, char* argv[], struct OPS_ *ops)
 {
@@ -574,8 +595,10 @@ void OPS_SLEPC_Set (struct OPS_ *ops)
 	ops->MatDotMultiVec         = SLEPC_MatDotMultiVec        ;
 	ops->MatTransDotMultiVec    = SLEPC_MatTransDotMultiVec   ;
 	ops->MultiVecLinearComb     = SLEPC_MultiVecLinearComb    ;
-	//ops->MultiVecQtAP           = SLEPC_MultiVecQtAP          ;
-	//ops->MultiVecInnerProd      = SLEPC_MultiVecInnerProd     ; 
+	if (0) {// no efficiency
+	   ops->MultiVecQtAP        = SLEPC_MultiVecQtAP          ;
+	   ops->MultiVecInnerProd   = SLEPC_MultiVecInnerProd     ; 
+	}
 	/* multi grid */
 	ops->MultiGridCreate        = SLEPC_MultiGridCreate ;
 	ops->MultiGridDestroy       = SLEPC_MultiGridDestroy;

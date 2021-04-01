@@ -19,10 +19,9 @@
 #include	"app_phg.h"
 
 
-#if USE_PHG
+#if OPS_USE_PHG
 
-//#include	<mpi.h>
-#if USE_INTEL_MKL
+#if OPS_USE_INTEL_MKL
 #include	<mkl_spblas.h>
 #endif
 
@@ -92,7 +91,7 @@ static void phgMatDotMultiVecLocal (MAT *A, VEC *x, VEC *y)
 	}
 #endif
 
-#if USE_INTEL_MKL
+#if OPS_USE_INTEL_MKL
 	sparse_matrix_t csrA;
 	struct matrix_descr descr;
 	descr.type = SPARSE_MATRIX_TYPE_GENERAL;
@@ -117,14 +116,37 @@ static void phgMatDotMultiVecLocal (MAT *A, VEC *x, VEC *y)
 			SPARSE_INDEX_BASE_ZERO,  
 			nrows, ncols,  
 			rowsSE, rowsSE+1, A->packed_cols, A->packed_data);
+#if OPS_USE_OMP
+	#pragma omp parallel num_threads(OMP_NUM_THREADS)
+	{
+		int id, length, offset;
+		id     = omp_get_thread_num();
+		length = x->nvec/OMP_NUM_THREADS;
+		offset = length*id;
+		if (id < x->nvec%OMP_NUM_THREADS) {
+			++length; offset += id;
+		}
+		else {
+			offset += x->nvec%OMP_NUM_THREADS;
+		} 
+		mkl_sparse_d_mm (
+				SPARSE_OPERATION_NON_TRANSPOSE,
+				1.0,
+				csrA, descr, SPARSE_LAYOUT_COLUMN_MAJOR,  
+				     x->data+offset*ncols, length, ncols,  
+				0.0, y->data+offset*nrows, nrows);
+	}
+#else
 	mkl_sparse_d_mm (
 			SPARSE_OPERATION_NON_TRANSPOSE,
 			1.0,
 			csrA, descr, SPARSE_LAYOUT_COLUMN_MAJOR,  
-			x->data, x->nvec, ncols,  
+			     x->data, x->nvec, ncols,  
 			0.0, y->data, nrows);
+#endif
 	mkl_sparse_destroy (csrA);
 #else
+
 #if 0
 	double *dx, *dy, *dm; int *cols, i, j;
 	cols = A->packed_cols;
@@ -139,8 +161,7 @@ static void phgMatDotMultiVecLocal (MAT *A, VEC *x, VEC *y)
 	      }
 	   }
 	}
-#endif
-
+#else
 	memset(y->data,0,nrows*x->nvec*sizeof(double));
 	/* PetscErrorCode MatMatMultNumericAdd_SeqAIJ_SeqDense(Mat A,Mat B,Mat C) */
 	double r1,r2,r3,r4,*c1,*c2,*c3,*c4,aatmp;
@@ -187,6 +208,8 @@ static void phgMatDotMultiVecLocal (MAT *A, VEC *x, VEC *y)
 	   b1 += bm;
 	   c1 += am;
 	}
+#endif
+
 #endif 
 	free(rowsSE);
 	return;
@@ -431,11 +454,15 @@ static void MatDotMultiVec (MAT *mat, VEC *x,
 	x->nvec = end[0]-start[0]; y->nvec = end[1]-start[1];
 	x->data += start[0]*x->map->nlocal;
 	y->data += start[1]*y->map->nlocal;
-	/* y  = mat x */
-	//phgMatDotMultiVecLocal (mat, x, y);
-	/* y += mat x */
-	//phgMatDotMultiVecRemote(mat, x, y);
-	phgMatDotMultiVec(mat, x, y);
+	if (0) {
+	   /* y  = mat x */
+	   phgMatDotMultiVecLocal (mat, x, y);
+	   /* y += mat x */
+	   phgMatDotMultiVecRemote(mat, x, y);
+	}
+	else {
+	   phgMatDotMultiVec(mat, x, y);
+	}
 #else	
 	int i;
 	x->nvec = 1; y->nvec = 1;

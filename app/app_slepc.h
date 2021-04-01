@@ -15,7 +15,7 @@
 #include	"ops.h"
 #include	"app_lapack.h"
 
-#if USE_SLEPC
+#if OPS_USE_SLEPC
 
 #include	<petscoptions.h>
 #include	<petscviewer.h>

@@ -5,6 +5,7 @@
  *  单向量与多向量结构是统一的
  *
  *  @author  Yu Li, liyu@tjufe.edu.cn
+ *           ZJ Wang, for OpenMP
  *
  *       Created:  2020/8/13
  *      Revision:  none
@@ -68,7 +69,7 @@ static void DenseMatQtAP(char ntluA, char nsdC,
 			inc = 1;			
 			if (beta==1.0) {
 				if (alpha!=0.0) {
-#if USE_OMP
+#if OPS_USE_OMP
 					#pragma omp parallel for schedule(static) num_threads(OMP_NUM_THREADS)
 #endif
 					for (idx = 0; idx < ncolsC; ++idx) {
@@ -79,7 +80,7 @@ static void DenseMatQtAP(char ntluA, char nsdC,
 			}
 			else if (beta==0.0) {
 				if (alpha!=0.0) {
-#if USE_OMP
+#if OPS_USE_OMP
 					#pragma omp parallel for schedule(static) num_threads(OMP_NUM_THREADS)
 #endif
 					for (idx = 0; idx < ncolsC; ++idx) {
@@ -92,7 +93,7 @@ static void DenseMatQtAP(char ntluA, char nsdC,
 						memset(matC,0,ncolsC*sizeof(double));
 					}
 					else {
-#if USE_OMP
+#if OPS_USE_OMP
 					    #pragma omp parallel for schedule(static) num_threads(OMP_NUM_THREADS)
 #endif
 						for (idx = 0; idx < ncolsC; ++idx) {
@@ -102,7 +103,7 @@ static void DenseMatQtAP(char ntluA, char nsdC,
 				}				
 			}
 			else {
-#if USE_OMP
+#if OPS_USE_OMP
 				#pragma omp parallel for schedule(static) num_threads(OMP_NUM_THREADS)
 #endif
 				for (idx = 0; idx < ncolsC; ++idx) {
@@ -115,8 +116,8 @@ static void DenseMatQtAP(char ntluA, char nsdC,
 		else if (nsdC == 'S') {
 			assert(nrowsC == ncolsC);
 			inc = 1;
-#if USE_OMP
-		    #pragma omp parallel for schedule(static) num_threads(OMP_NUM_THREADS)
+#if OPS_USE_OMP
+		        #pragma omp parallel for schedule(static) num_threads(OMP_NUM_THREADS)
 #endif
 			for (idx = 0; idx < ncolsC; ++idx) {
 				int nrowsC;
@@ -132,10 +133,52 @@ static void DenseMatQtAP(char ntluA, char nsdC,
 			}
 		}
 		else {
+#if OPS_USE_OMP
+#if 0
+			#pragma omp parallel num_threads(OMP_NUM_THREADS)
+			{
+				int id, length, offset;
+				id     = omp_get_thread_num();
+				length = nrowsC/OMP_NUM_THREADS;
+				offset = length*id;
+				if (id < nrowsC%OMP_NUM_THREADS) {
+					++length; offset += id;
+				}
+				else {
+					offset += nrowsC%OMP_NUM_THREADS;
+				} 
+				dgemm(&charT,&charN,&length,&ncolsC,&nrowsA,
+						&alpha,matQ+offset*ldQ,&ldQ,  /* A */
+						       matP           ,&ldP,  /* B */
+						&beta ,matC+offset    ,&ldC); /* C */
+			}
+#else
+			#pragma omp parallel num_threads(OMP_NUM_THREADS)
+			{
+				int id, length, offset;
+				id     = omp_get_thread_num();
+				length = ncolsC/OMP_NUM_THREADS;
+				offset = length*id;
+				if (id < ncolsC%OMP_NUM_THREADS) {
+					++length; offset += id;
+				}
+				else {
+					offset += ncolsC%OMP_NUM_THREADS;
+				} 
+				dgemm(&charT,&charN,&nrowsC,&length,&nrowsA,
+						&alpha,matQ           ,&ldQ,  /* A */
+						       matP+offset*ldP,&ldP,  /* B */
+						&beta ,matC+offset*ldC,&ldC); /* C */
+			}
+
+#endif
+
+#else
 			dgemm(&charT,&charN,&nrowsC,&ncolsC,&nrowsA,
 					&alpha,matQ,&ldQ,  /* A */
 					       matP,&ldP,  /* B */
 					&beta ,matC,&ldC); /* C */
+#endif
 		}
 	}
 	else {
@@ -347,10 +390,30 @@ static void MatDotMultiVec (LAPACKMAT *mat, LAPACKVEC *x,
 				y->data+(y->ldd)*start[1],&incy);
 	} 
 	else {
-		dgemm(&charN,&charN,&(y->nrows),&ncols,&x->nrows,
-				&alpha,mat->data                ,&mat->ldd,/* A */
-				       x->data+(x->ldd)*start[0],&x->ldd,  /* B */
-				&beta ,y->data+(y->ldd)*start[1],&y->ldd); /* C */
+#if OPS_USE_OMP
+		#pragma omp parallel num_threads(OMP_NUM_THREADS)
+		{
+			int id, length, offset;
+			id     = omp_get_thread_num();
+			length = ncols/OMP_NUM_THREADS;
+			offset = length*id;
+			if (id < ncols%OMP_NUM_THREADS) {
+				++length; offset += id;
+			}
+			else {
+				offset += ncols%OMP_NUM_THREADS;
+			} 
+			dgemm(&charN,&charN,&y->nrows,&length,&x->nrows,
+					&alpha,mat->data                       ,&mat->ldd,/* A */
+					       x->data+x->ldd*(start[0]+offset),&x->ldd,  /* B */
+					&beta ,y->data+y->ldd*(start[1]+offset),&y->ldd); /* C */
+		}
+#else
+		dgemm(&charN,&charN,&y->nrows,&ncols,&x->nrows,
+				&alpha,mat->data              ,&mat->ldd,/* A */
+				       x->data+x->ldd*start[0],&x->ldd,  /* B */
+				&beta ,y->data+y->ldd*start[1],&y->ldd); /* C */
+#endif
 	}
 	return;
 }
@@ -362,10 +425,20 @@ static void MatTransDotMultiVec (LAPACKMAT *mat, LAPACKVEC *x,
 	assert(x->nrows==x->ldd);
 	char charT = 'T', charN = 'N'; double alpha = 1.0, beta = 0.0;
 	int  ncols = end[1]-start[1];
+
+#if 1
+	DenseMatQtAP(charN,charN,x->nrows,x->nrows,y->nrows,ncols,
+			alpha,mat->data                ,mat->ldd,
+			      NULL                     ,0,
+			      x->data+(x->ldd)*start[0],x->ldd,
+			beta ,y->data+(y->ldd)*start[1],y->ldd,
+			NULL);
+#else
 	dgemm(&charT,&charN,&(y->nrows),&ncols,&x->nrows,
 			&alpha,mat->data                ,&mat->ldd,/* A */
 			       x->data+(x->ldd)*start[0],&x->ldd,  /* B */
 			&beta ,y->data+(y->ldd)*start[1],&y->ldd); /* C */
+#endif
 	return;
 }
 static void MultiVecLinearComb (
@@ -413,10 +486,30 @@ static void MultiVecLinearComb (
 		}
 	}
 	if (x!=NULL && coef!=NULL) {
+#if OPS_USE_OMP
+		#pragma omp parallel num_threads(OMP_NUM_THREADS)
+		{
+			int id, length, offset;
+			id     = omp_get_thread_num();
+			length = ncols/OMP_NUM_THREADS;
+			offset = length*id;
+			if (id < ncols%OMP_NUM_THREADS) {
+				++length; offset += id;
+			}
+			else {
+				offset += ncols%OMP_NUM_THREADS;
+			} 
+			dgemm(&charN,&charN,&y->nrows,&length,&nrows,
+					&one  ,x->data+x->ldd*start[0]         ,&(x->ldd), /* A */
+					       coef   +offset*ldc              ,&ldc,      /* B */
+					&gamma,y->data+y->ldd*(start[1]+offset),&(y->ldd));/* C */
+		}
+#else
 		dgemm(&charN,&charN,&y->nrows,&ncols,&nrows,
 				&one  ,x->data+x->ldd*start[0],&(x->ldd), /* A */
 				       coef                   ,&ldc,      /* B */
 				&gamma,y->data+y->ldd*start[1],&(y->ldd));/* C */
+#endif
 	}
 	return;
 }
@@ -836,7 +929,8 @@ static void LAPACK_MultiGridDestroy (void ***A_array , void ***B_array, void ***
 		
 void OPS_LAPACK_Set (struct OPS_ *ops)
 {
-	ops->Printf                   = DefaultPrintf ;
+	ops->Printf                   = DefaultPrintf  ;
+	ops->GetWtime                 = DefaultGetWtime;
 	ops->GetOptionFromCommandLine = DefaultGetOptionFromCommandLine;
 	ops->MatView                  = LAPACK_MatView;
 	/* vec */

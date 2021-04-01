@@ -56,7 +56,7 @@ static void MatDotMultiVec (CCSMAT *mat, LAPACKVEC *x,
 	int length = end[0]-start[0]; int col; 
 	if (mat!=NULL) {
 		memset(y->data+(y->ldd)*start[1],0,(y->ldd)*length*sizeof(double));
-#if USE_OMP
+#if OPS_USE_OMP
 		#pragma omp parallel for schedule(static) num_threads(OMP_NUM_THREADS)
 #endif
 		for (col = 0; col < length; ++col) {
@@ -157,6 +157,7 @@ void OPS_CCS_Set (struct OPS_ *ops)
 	OPS_LAPACK_Set (ops->lapack_ops);
 	ops->Printf                   = DefaultPrintf;
 	ops->GetOptionFromCommandLine = DefaultGetOptionFromCommandLine;
+	ops->GetWtime                 = DefaultGetWtime;
 	ops->MatView                  = CCS_MatView;
 	/* vec */
 	ops->VecCreateByMat           = CCS_VecCreateByMat;

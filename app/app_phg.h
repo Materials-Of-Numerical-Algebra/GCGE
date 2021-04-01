@@ -15,7 +15,7 @@
 #include	"ops.h"
 #include	"app_lapack.h"
 
-#if USE_PHG
+#if OPS_USE_PHG
 
 #include	<phg.h>
 

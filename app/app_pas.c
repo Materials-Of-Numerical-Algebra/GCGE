@@ -19,7 +19,7 @@
 #include    "app_pas.h"
 
 
-#if USE_MPI
+#if OPS_USE_MPI
 int       PASMAT_COMM_COLOR;
 MPI_Comm  PASMAT_COMM[2]   ;
 MPI_Comm  PASMAT_INTERCOMM ;
@@ -103,7 +103,7 @@ static void MultiVecLocalInnerProd (char nsdIP,
 	double *matQ, *matP;
 	matQ = ((LAPACKVEC*)(x->x))->data+sizeX*start[0];
 	matP = ((LAPACKVEC*)(y->x))->data+sizeX*start[1];		
-#if USE_MPI	
+#if OPS_USE_MPI	
 	int local_rank = -1;
 	MPI_Comm_rank(PASMAT_COMM[0],&local_rank);
 	/* 0 进程计算 x 部分 */	
@@ -137,7 +137,7 @@ static void MultiVecInnerProd (char nsdIP,
 		x->q[level_aux],y->q[level_aux],is_vec,
 		start,end,inner_prod,ldIP,ops->app_ops);
 	if (nsdIP == 'D') nrows = 1;	 
-#if USE_MPI		
+#if OPS_USE_MPI		
 	MPI_Request request; MPI_Status status;
 	/* 创建矩阵块类型, 用于MPI通讯 */
 	MPI_Datatype data_type; MPI_Op op; 
@@ -155,7 +155,7 @@ static void MultiVecInnerProd (char nsdIP,
 	/* x_{a_0}^{\top} y_{a_1} */
 	ops->lapack_ops->MultiVecLocalInnerProd(nsdIP,x->x,y->x,is_vec,
 		start,end,dbl_ws,nrows,ops->lapack_ops);	
-#if USE_MPI	
+#if OPS_USE_MPI	
 	if (PASMAT_COMM_COLOR == 0) {
 		/* 非阻塞完成 */
 		MPI_Wait(&request, &status);
@@ -211,7 +211,7 @@ static void MultiVecAxpby (double alpha, PASVEC *x,
 static void MatDotMultiVec (PASMAT *mat, PASVEC *x, 
 		PASVEC *y, int *start_xy, int *end_xy, struct OPS_ *ops)
 {
-	int level_aux = y->level_aux, ldIP, start[2], end[2], nrows, ncols;
+	int level_aux = y->level_aux, ldIP, start[2], end[2];
 	if (end_xy[0]-start_xy[0]<=0||end_xy[1]-start_xy[1]<=0) return;	
 	double *inner_prod;
 	/* QQ q */
@@ -234,8 +234,9 @@ static void MatDotMultiVec (PASMAT *mat, PASVEC *x,
 	start[1] = start_xy[0]; end[1] = end_xy[0];
 	ops->app_ops->MultiVecLocalInnerProd('N',mat->QX[level_aux],
 		x->q[level_aux],0,start,end,inner_prod,ldIP,ops->app_ops);
+#if OPS_USE_MPI
+	int nrows, ncols;
 	nrows = end[0]-start[0]; ncols = end[1]-start[1];
-#if USE_MPI
 	MPI_Request request; MPI_Status status;
 	MPI_Datatype data_type; MPI_Op op; 
 	CreateMPIDataTypeSubMat(&data_type,nrows,ncols,ldIP);
@@ -263,7 +264,7 @@ static void MatDotMultiVec (PASMAT *mat, PASVEC *x,
 	start[1] = 0          ; end[1] = end_xy[1]-start_xy[1];
 	ops->lapack_ops->MatDotMultiVec(mat->XX,x->x,(void**)tmp_vec,
 		start,end,ops->lapack_ops);
-#if USE_MPI
+#if OPS_USE_MPI
 	if (PASMAT_COMM_COLOR == 0) {
 		/* 非阻塞完成 */
 		MPI_Wait(&request, &status);
@@ -381,7 +382,7 @@ static void PAS_MultiVecInnerProd (char nsdIP,
 	MultiVecInnerProd (nsdIP, 
 			(PASVEC *)x, (PASVEC *)y, is_vec, start, end, 
 			inner_prod, ldIP, ops);	
-#if USE_MPI
+#if OPS_USE_MPI
 	/* 创建矩阵块类型, 用于MPI通讯 */
 	int nrows = end[0]-start[0], ncols = end[1]-start[1];
 	if (nsdIP=='D') nrows = 1; 
@@ -423,7 +424,7 @@ static void PAS_MatDotMultiVec (void *mat, void **x,
 {
 	MatDotMultiVec ((PASMAT *)mat, (PASVEC *)x, 
 			(PASVEC *)y, start, end, ops);
-#if USE_MPI
+#if OPS_USE_MPI
 	/* 创建矩阵块类型, 用于MPI通讯 */
 	int nrows, ncols, ldd;
 	LAPACKVEC *lapack_vec = (LAPACKVEC*)((PASVEC *)y)->x;
@@ -480,24 +481,24 @@ static void PAS_MultiVecQtAP (char ntsA, char nsdQAP,
 		void **mv_ws, struct OPS_ *ops)
 {
    	if (matA==NULL) {
-      	DefaultMultiVecQtAP (ntsA,nsdQAP,mvQ,matA,mvP,is_vec, 
-	    	start,end,qAp,ldQAP,mv_ws,ops);
+	   DefaultMultiVecQtAP (ntsA,nsdQAP,mvQ,matA,mvP,is_vec, 
+		 start,end,qAp,ldQAP,mv_ws,ops);
    	}
    	else {
-      	/* 若XX为单位矩阵, QX为零矩阵, 做特殊处理 */
-      	if (((PASMAT*)matA)->XX==NULL&&((PASMAT*)matA)->QX==NULL) {
-	 	/* q QQ p */
-	 	/* y    x */
-	 	MultiVecQtAP (ntsA,nsdQAP,(PASVEC *)mvQ,(PASMAT *)matA,(PASVEC *)mvP,is_vec, 
-	    	start,end,qAp,ldQAP,(PASVEC *)mv_ws,ops);
-      	}
-      	else {
-	 		DefaultMultiVecQtAP (ntsA,nsdQAP,mvQ,matA,mvP,is_vec, 
-	       		start,end,qAp,ldQAP,mv_ws,ops);
-      	}
+	   /* 若XX为单位矩阵, QX为零矩阵, 做特殊处理 */
+	   if (((PASMAT*)matA)->XX==NULL&&((PASMAT*)matA)->QX==NULL) {
+	      /* q QQ p */
+	      /* y    x */
+	      MultiVecQtAP (ntsA,nsdQAP,(PASVEC *)mvQ,(PASMAT *)matA,(PASVEC *)mvP,is_vec, 
+		    start,end,qAp,ldQAP,(PASVEC *)mv_ws,ops);
+	   }
+	   else {
+	      DefaultMultiVecQtAP (ntsA,nsdQAP,mvQ,matA,mvP,is_vec, 
+		    start,end,qAp,ldQAP,mv_ws,ops);
+	   }
    	}
   	   
-#if USE_MPI
+#if OPS_USE_MPI
 	/* 创建矩阵块类型, 用于MPI通讯 */
 	int nrows = end[0]-start[0], ncols = end[1]-start[1];
 	if (nsdQAP=='D') nrows = 1; 
@@ -547,7 +548,7 @@ void OPS_PAS_Set (struct OPS_ *ops, struct OPS_ *app_ops)
 	//ops->DenseMatOrth             = app_ops->DenseMatOrth;
 	ops->app_ops                  = app_ops;
 
-#if USE_MPI
+#if OPS_USE_MPI
 	PASMAT_COMM_COLOR = 0;
 	PASMAT_COMM[0]    = MPI_COMM_WORLD;
 	PASMAT_COMM[1]    = MPI_COMM_NULL;

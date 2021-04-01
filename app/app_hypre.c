@@ -19,7 +19,7 @@
 #include	"app_hypre.h"
 
 
-#if USE_HYPRE
+#if OPS_USE_HYPRE
 
 #ifdef DEBUG
 #undef DEBUG
@@ -189,7 +189,6 @@ static void MatTransDotMultiVec (hypre_ParCSRMatrix *mat, hypre_ParVector *x,
 {
    assert(end[0]-start[0]==end[1]-start[1]);
    if (end[0]-start[0] == 0) return;
-   int i;
    int     nvec_x = x->local_vector->num_vectors,  nvec_y = y->local_vector->num_vectors;
    double *data_x = x->local_vector->data       , *data_y = y->local_vector->data;
    x->local_vector->num_vectors = end[0]-start[0]; y->local_vector->num_vectors = end[1]-start[1];

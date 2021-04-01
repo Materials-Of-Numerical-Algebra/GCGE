@@ -22,7 +22,7 @@
 #include	"app_lapack.h"
 #include	"app_ccs.h"
 
-#if USE_MATLAB
+#if OPS_USE_MATLAB
 #include	"mex.h"
 #include	"matrix.h"
 
