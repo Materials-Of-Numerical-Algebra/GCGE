@@ -25,7 +25,7 @@ int TestEigenSolverGCG   (void *A, void *B, int flag, int argc, char *argv[], st
 
 int TestAppPAS_LAPACK(int argc, char *argv[]) 
 {
-#if USE_MPI
+#if OPS_USE_MPI
    MPI_Init(&argc, &argv);
 #endif
 	
@@ -114,7 +114,7 @@ int TestAppPAS_LAPACK(int argc, char *argv[])
 	OPS_Destroy (&lapack_ops);
 	OPS_Destroy (&pas_ops);
 	
-#if USE_MPI
+#if OPS_USE_MPI
    MPI_Finalize();
 #endif
 	return 0;

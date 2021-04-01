@@ -17,7 +17,7 @@
 
 #include "ops.h"
 
-#if USE_PHG 
+#if OPS_USE_PHG 
 #include <phg.h>
 
 #if (PHG_VERSION_MAJOR <= 0 && PHG_VERSION_MINOR < 9)
@@ -88,7 +88,7 @@ CreateMatrixPHG(void **matA, void **matB, void **dofU, void **mapM, void **gridG
 	phgOptionsRegisterInt   ("-eps_nev" , "int", &int_tmp);
 	phgOptionsRegisterInt   ("-eps_ncv" , "int", &int_tmp);
 	phgOptionsRegisterInt   ("-eps_mpd" , "int", &int_tmp);
-	phgOptionsRegisterString("-eps_max_it"  , "int", &int_tmp);
+	phgOptionsRegisterInt   ("-eps_max_it"  , "int", &int_tmp);
 	phgOptionsRegisterFloat ("-eps_tol"     , "dbl", &dbl_tmp);
 	phgOptionsRegisterNoArg ("-eps_conv_abs", "bln", &bln_tmp);	
 	phgOptionsRegisterNoArg ("-eps_conv_rel", "bln", &bln_tmp);	
@@ -102,7 +102,10 @@ CreateMatrixPHG(void **matA, void **matB, void **dofU, void **mapM, void **gridG
    	phgOptionsRegisterInt   ("-gcge_max_niter", "int", &int_tmp);
    	phgOptionsRegisterFloat ("-gcge_abs_tol"  , "dbl", &dbl_tmp);
    	phgOptionsRegisterFloat ("-gcge_rel_tol"  , "dbl", &dbl_tmp);
-   	phgOptionsRegisterInt   ("-gcge_compW_cg_max_iter", "int", &int_tmp);
+   	phgOptionsRegisterInt   ("-gcge_compW_cg_max_iter"  , "int", &int_tmp);
+   	phgOptionsRegisterInt   ("-gcge_compW_cg_auto_shift", "int", &int_tmp);
+   	phgOptionsRegisterInt   ("-gcge_compW_cg_shift"     , "dbl", &dbl_tmp);
+   	phgOptionsRegisterInt   ("-gcge_compW_cg_order"     , "int", &int_tmp);
    	phgOptionsRegisterString("-gcge_initX_orth_method", "str", &str_tmp);
    	phgOptionsRegisterString("-gcge_compP_orth_method", "str", &str_tmp);
    	phgOptionsRegisterString("-gcge_compW_orth_method", "str", &str_tmp);
@@ -113,6 +116,7 @@ CreateMatrixPHG(void **matA, void **matB, void **dofU, void **mapM, void **gridG
 	phgOptionsRegisterInt("-nevInit"  , "int", &int_tmp);
 	
 	phgOptionsRegisterInt("-use_slepc_eps", "int", &int_tmp);
+	//phgOptionsRegisterInt("-use_mumps_dls", "int", &int_tmp);
 #endif
 
     static char *fn = "../data/cube4.dat";
@@ -120,7 +124,7 @@ CreateMatrixPHG(void **matA, void **matB, void **dofU, void **mapM, void **gridG
     //size_t mem, mem_peak;
     int i;
     //int pre_refines = 13;
-    int pre_refines = 3;
+    int pre_refines = 10;
     GRID *g;
     DOF *u_h;
     MAP *map;

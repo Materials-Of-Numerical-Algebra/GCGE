@@ -29,7 +29,7 @@ static int DestroyMatrixCCS(CCSMAT *ccs_matA, CCSMAT *ccs_matB);
 
 int TestAppPAS_CCS(int argc, char *argv[]) 
 {
-#if USE_MPI
+#if OPS_USE_MPI
    MPI_Init(&argc, &argv);
 #endif
 
@@ -107,7 +107,7 @@ int TestAppPAS_CCS(int argc, char *argv[])
    OPS_Destroy (&ccs_ops);
    OPS_Destroy (&pas_ops);
 
-#if USE_MPI
+#if OPS_USE_MPI
    MPI_Finalize();
 #endif
    return 0;
@@ -115,7 +115,7 @@ int TestAppPAS_CCS(int argc, char *argv[])
 
 static int CreateMatrixCCS(CCSMAT *ccs_matA, CCSMAT *ccs_matB) 
 {
-   int n = 50, row, col; double h = 1.0/(n+1);
+   int n = 50, col; double h = 1.0/(n+1);
    //int n = 1000+7, col; double h = 1.0/(n+1);
    ccs_matA->nrows = n; ccs_matA->ncols = n;
    ccs_matA->j_col = malloc((n+1)*sizeof(int));

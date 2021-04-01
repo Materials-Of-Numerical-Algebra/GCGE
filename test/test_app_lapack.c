@@ -26,7 +26,7 @@ int TestMultiGrid        (void *A, void *B, struct OPS_ *ops);
 
 int TestAppLAPACK(int argc, char *argv[]) 
 {
-#if USE_MPI
+#if OPS_USE_MPI
    MPI_Init(&argc, &argv);
 #endif
 	
@@ -38,7 +38,7 @@ int TestAppLAPACK(int argc, char *argv[])
 	void *matA, *matB; OPS *ops;
 
 	//int n = 29, row, col; double h = 1.0/(n+1);
-	int n = 1000+7, row, col; double h = 1.0/(n+1);
+	int n = 3000+7, row, col; double h = 1.0/(n+1);
 	//double diag[16] = {1,1,1,2,2,3,4,5,5,5,5,8,8,9,9,9};
 	LAPACKMAT lapack_matA; 
 	lapack_matA.nrows = n; lapack_matA.ncols = n; lapack_matA.ldd = n;
@@ -86,8 +86,8 @@ int TestAppLAPACK(int argc, char *argv[])
 	//TestMultiLinearSolver(matA,ops);
 	//TestOrth(matA,ops);
 	//TestLinearSolver(matA,ops);
-	//TestEigenSolverGCG(matA,matB,0,argc,argv,ops);
-	TestEigenSolverPAS(matA,matB,0,argc,argv,ops);
+	TestEigenSolverGCG(matA,matB,0,argc,argv,ops);
+	//TestEigenSolverPAS(matA,matB,0,argc,argv,ops);
 	//TestMultiGrid(matA,matB,ops);
 	
 	free(lapack_matA.data); lapack_matA.data = NULL;
@@ -115,7 +115,7 @@ int TestAppLAPACK(int argc, char *argv[])
 		printf("\n");
 	}
 
-#if USE_MPI
+#if OPS_USE_MPI
    MPI_Finalize();
 #endif
 	return 0;

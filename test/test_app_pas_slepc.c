@@ -22,7 +22,7 @@ int TestOrth             (void *mat, struct OPS_ *ops);
 int TestMultiLinearSolver(void *mat, struct OPS_ *ops);
 int TestEigenSolverGCG   (void *A, void *B, int flag, int argc, char *argv[], struct OPS_ *ops);
 
-#if USE_SLEPC
+#if OPS_USE_SLEPC
 #include <slepceps.h>
 
 static char help[] = "Test App of PAS in SLEPC.\n";

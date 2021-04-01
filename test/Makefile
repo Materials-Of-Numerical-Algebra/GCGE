@@ -12,8 +12,8 @@ LIBS     = $(LIBPHG) $(LIBSLEPC) $(LIBPETSC) $(LIBHYPRE) $(LIBBLASLAPACK)
 INCS     = -I../src -I../app
 CXXINCS  = 
 BIN      = TestOPS.exe
-CXXFLAGS = $(CXXINCS) -O2 -Wall -fPIC
-CFLAGS   = $(INCS) -O2 -Wall -fPIC -qopenmp #-fopenmp -DMEMWATCH -DMW_STDIO
+CXXFLAGS = $(CXXINCS) -O2 -Wall -fPIC -g
+CFLAGS   = $(INCS) -O2 -Wall -fPIC -g -qopenmp #-fopenmp -DMEMWATCH -DMW_STDIO ##
 RM       = rm -f
 
 .PHONY: all all-before all-after clean clean-custom
@@ -21,9 +21,9 @@ RM       = rm -f
 all: all-before $(BIN) all-after
 
 clean: clean-custom
-	${RM} $(OBJ) $(BIN)
+	${RM} $(OBJ) $(BIN) memwatch.o
 
-$(BIN): $(OBJ)
+$(BIN): $(OBJ) memwatch.o
 	$(CC) $(LINKOBJ) -o $(BIN) $(LIBS)
 
 main.o: main.c

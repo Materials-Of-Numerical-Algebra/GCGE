@@ -82,7 +82,7 @@ int TestMultiLinearSolver(void *mat, struct OPS_ *ops)
 	/* PCG */
 	max_iter = 50; rate = 1e-8; tol = 1e-8;
 	MultiLinearSolverSetup_BlockPCG(max_iter,rate,tol,"abs",
-			multi_vec+2,dbl_ws,int_ws,NULL,ops);
+			multi_vec+2,dbl_ws,int_ws,NULL,NULL,ops);
 	start[0] = 0; end[0] = num_vec;
 	start[1] = 0; end[1] = num_vec;
 	//ops->MultiVecAxpby(0.0,NULL,0.0,multi_vec[1],start,end,ops);

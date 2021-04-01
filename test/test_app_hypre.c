@@ -6,18 +6,19 @@
 #include "ops.h"
 #include "app_hypre.h"
 
-#define USE_PHG_MAT 1
+#define OPS_USE_PHG_MAT 0
 /* run this program using the console pauser or add your own getch, system("pause") or input loop */
 int TestVec              (void *mat, struct OPS_ *ops);
 int TestMultiVec         (void *mat, struct OPS_ *ops);
 int TestOrth             (void *mat, struct OPS_ *ops);
 int TestLinearSolver     (void *mat, struct OPS_ *ops);
 int TestMultiLinearSolver(void *mat, struct OPS_ *ops);
-int TestEigenSolver      (void *A, void *B, int flag, int argc, char *argv[], struct OPS_ *ops);
+int TestEigenSolverGCG   (void *A, void *B, int flag, int argc, char *argv[], struct OPS_ *ops);
+int TestEigenSolverPAS   (void *A, void *B, int flag, int argc, char *argv[], struct OPS_ *ops);
 int TestMultiGrid        (void *A, void *B, struct OPS_ *ops);
 
 
-#if USE_HYPRE
+#if OPS_USE_HYPRE
 int  CreateMatrixHYPRE (HYPRE_IJMatrix *A, HYPRE_IJMatrix *B, HYPRE_IJVector *x, int argc, char *argv[]);
 int  DestroyMatrixHYPRE(HYPRE_IJMatrix *A, HYPRE_IJMatrix *B, HYPRE_IJVector *x, int argc, char *argv[]);
 
@@ -106,7 +107,7 @@ int TestAppHYPRE(int argc, char *argv[])
    OPS_Setup (hypre_ops);
    hypre_ops->Printf("%s", help);
    HYPRE_IJMatrix hypre_mat_A, hypre_mat_B;
-#if USE_PHG_MAT
+#if OPS_USE_PHG_MAT
    void *phg_mat_A, *phg_mat_B, *phg_dof_U, *phg_map_M, *phg_grid_G;
    CreateMatrixPHG (&phg_mat_A, &phg_mat_B, &phg_dof_U, &phg_map_M, &phg_grid_G, argc, argv);
    MatrixConvertPHG2HYPRE((void **)(&hypre_mat_A), &phg_mat_A);
@@ -147,7 +148,7 @@ int TestAppHYPRE(int argc, char *argv[])
    TestEigenSolverPAS(matA,matB,0,argc,argv,ops);
    //TestMultiGrid(matA,matB,ops);
    /* Ïú»Ùhypre¾ØÕó */
-#if USE_PHG_MAT
+#if OPS_USE_PHG_MAT
    DestroyMatrixHYPRE(&hypre_mat_A, &hypre_mat_B, NULL, argc, argv);
    hypre_ops->MultiVecDestroy((void ***)(&vecX), 1, hypre_ops);
 #else
@@ -161,7 +162,7 @@ int TestAppHYPRE(int argc, char *argv[])
 int CreateMatrixHYPRE (HYPRE_IJMatrix *A, HYPRE_IJMatrix *B, HYPRE_IJVector *x, int argc, char *argv[])
 {
    //int i, N, n = 3750;
-   int i, N, n = 55;
+   int i, N, n = 120;
    HYPRE_Int myid, num_procs;
    HYPRE_Int local_size, extra, ilower, iupper; 
    HYPRE_Real h;

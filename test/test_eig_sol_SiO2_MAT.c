@@ -23,8 +23,8 @@
 
 
 #define DEBUG   0
-#define USE_PAS 0
-#define USE_AMG 0
+#define OPS_USE_PAS 0
+#define OPS_USE_AMG 0
 
 int TestEigenSolver(void *A, void *B, int argc, char *argv[], struct OPS_ *ops) 
 {
@@ -49,7 +49,7 @@ int TestEigenSolver(void *A, void *B, int argc, char *argv[], struct OPS_ *ops)
 	//sizeX = nevMax + multiMax;
 	sizeX = 2*block_size + multiMax;
 	sizeV = sizeX + 2*block_size;
-#if USE_PAS
+#if OPS_USE_PAS
 	int length_dbl_ws = 5*sizeX*sizeX+sizeX*sizeV+2*sizeV*sizeV+sizeV*sizeV/2+11*sizeV;
 #else
 #if DEBUG 
@@ -68,7 +68,7 @@ int TestEigenSolver(void *A, void *B, int argc, char *argv[], struct OPS_ *ops)
 
 	sizeX = nevMax + multiMax;
 	sizeV = sizeX + 2*block_size;
-#if USE_PAS
+#if OPS_USE_PAS
 	int    max_iter_pas = 2, max_iter_rr = 2, block_size_rr = block_size;
 	double tol_pas[2] = {1e-1,1e-1}, tol_rr[3] = {1e-1,1e-1};
 #endif
@@ -87,13 +87,13 @@ int TestEigenSolver(void *A, void *B, int argc, char *argv[], struct OPS_ *ops)
 	ops->MultiVecCreateByMat(&evec,(nevMax+multiMax),A,ops);
 
 	double time_start, time_interval;
-#if USE_MPI
+#if OPS_USE_MPI
 	time_start = MPI_Wtime();
 #else
 	time_start = clock();
 #endif
 
-#if USE_AMG
+#if OPS_USE_AMG
 	/* AMG 做为线性解法器的 GCG */
 	void   **A_array, **B_array, **P_array; 
 	int    level, num_levels = 3; 
@@ -134,7 +134,7 @@ int TestEigenSolver(void *A, void *B, int argc, char *argv[], struct OPS_ *ops)
 
 #endif
 	
-#if USE_PAS
+#if OPS_USE_PAS
 	ops->Printf("===============================================\n");
 	ops->Printf("PAS Eigen Solver as preconditioner\n");
 	//EigenSolverSetup_PAS(sizeX-3*multiMax/4,3*multiMax/4,gapMin,nevMax,tol_pas,max_iter_pas,
@@ -147,7 +147,7 @@ int TestEigenSolver(void *A, void *B, int argc, char *argv[], struct OPS_ *ops)
 	//nevGiven = 0; nevConv = sizeX-3*multiMax/4;
 	ops->EigenSolver(A,B,eval,evec,nevGiven,&nevConv,ops);
 
-#if USE_MPI
+#if OPS_USE_MPI
 	time_interval = MPI_Wtime() - time_start;
 	ops->Printf("Time is %.3f\n", time_interval);
 	time_start    = MPI_Wtime();
@@ -161,7 +161,7 @@ int TestEigenSolver(void *A, void *B, int argc, char *argv[], struct OPS_ *ops)
 
 	void **gcg_mv_ws[4];
 		
-#if USE_AMG
+#if OPS_USE_AMG
 	/* TODO: 工作空间如何排布, 是个问题 */
 	MultiLinearSolverSetup_BlockAMG(amg_max_iter, amg_rate, amg_tol,
 		"abs", A_array, P_array, num_levels, 
@@ -177,7 +177,7 @@ int TestEigenSolver(void *A, void *B, int argc, char *argv[], struct OPS_ *ops)
 	ops->Printf("===============================================\n");
 	ops->Printf("GCG Eigen Solver\n");
 	EigenSolverSetup_GCG(nevMax,multiMax,gapMin,block_size,
-		tol_gcg,max_iter_gcg,USE_AMG,gcg_mv_ws,dbl_ws,int_ws,ops);
+		tol_gcg,max_iter_gcg,OPS_USE_AMG,gcg_mv_ws,dbl_ws,int_ws,ops);
 	
 	int    check_conv_max_num    = 600;
 		
@@ -214,7 +214,7 @@ int TestEigenSolver(void *A, void *B, int argc, char *argv[], struct OPS_ *ops)
 			ops);		
 		
 		
-#if USE_PAS
+#if OPS_USE_PAS
 	nevGiven = sizeX; 
 #else
 	nevGiven = 0; 
@@ -237,7 +237,7 @@ int TestEigenSolver(void *A, void *B, int argc, char *argv[], struct OPS_ *ops)
 	} while (0);
 
 
-#if USE_MPI
+#if OPS_USE_MPI
     time_interval = MPI_Wtime() - time_start;
 	ops->Printf("Time is %.3f\n", time_interval);
 #else
@@ -246,7 +246,7 @@ int TestEigenSolver(void *A, void *B, int argc, char *argv[], struct OPS_ *ops)
 #endif
 	
 
-#if USE_AMG
+#if OPS_USE_AMG
 	for (idx = 0; idx < 7; ++idx) {		
 		for (level = 0; level < num_levels; ++level) {
 			ops->MultiVecDestroy(&(amg_mv_ws[idx][level]),sizeV,ops);

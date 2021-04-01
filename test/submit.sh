@@ -13,7 +13,7 @@ filename=$1
 #matrix=/share/home/hhxie/liyu/MatrixCollection/Ga41As41H72.petsc.bin
 #matrix=/share/home/hhxie/liyu/MatrixCollection/Si5H12.petsc.bin
 #matrix=/share/home/hhxie/liyu/MatrixCollection/SiO2.petsc.bin
-exename="./TestOPS.exe"
+exename="./omp18.exe"
 #exename="./TestOPS.exe -eps_monitor_conv -eps_nev 200 -eps_lobpcg_blocksize 40 -eps_lobpcg_restart 0.1"
 #exename="./TestOPS.exe -gcge_compW_cg_max_iter 35 -file ${matrix}"
 #exename="./TestOPS.exe -gcge_compW_cg_max_iter 60"
@@ -23,24 +23,25 @@ mpirun=/soft/apps/intel/oneapi_hpc_2021/mpi/2021.1.1/bin/mpiexec.hydra
 #for nprocs in 72
 #for nprocs in 1152 36 72 144 288 576 
 #for nprocs in 36
-for nprocs in 576
+for nprocs in 1
+#for nprocs in 576
 #for nprocs in 1152
 do 
 #for nevConv in 100 200 400 800 1600
 #for nevConv in 5000
 for nevConv in 100
 do
-blockSize=20
+blockSize=$[nevConv/5]
 #for blockSize in 50 40 30 20
 #do
 #nevMax=$[nevConv+blockSize+20]
-nevMax=$[nevConv+nevConv]
+nevMax=$[2*nevConv]
 #for nevMax in 120
 #do 
 	bsub -J $filename -q big \
-     		-hostfile ./hosts/hosts${nprocs} \
-     		-e OOerr -o ./results/$filename.${nevConv}.${nevMax}.${blockSize}.${nprocs}.$(date +%m%d.%H%M%S) \
-     		"$mpirun $exename -nevConv ${nevConv} -nevMax ${nevMax} -blockSize ${blockSize}"
+     		-hostfile ./hosts${nprocs} \
+     		-e OOerr -o ./$filename.${nprocs}.${nevConv}.${tol}.$(date +%m%d.%H%M%S) \
+     		"$mpirun $exename -nevConv ${nevConv} -nevMax ${nevMax} -blockSize ${blockSize} -gcge_rel_tol 1e-8 -gcge_abs_tol 1"
 #done
 #done 
 done

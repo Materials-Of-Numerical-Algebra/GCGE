@@ -11,7 +11,7 @@
 
 #include "ops.h"
 
-#if USE_PHG & USE_PETSC & USE_HYPRE
+#if OPS_USE_PHG & OPS_USE_PETSC & OPS_USE_HYPRE
 #include "phg.h"
 
 #include <petscmat.h>

@@ -25,11 +25,11 @@ int TestAppPAS_CCS   (int argc, char *argv[]);
 
 int main(int argc, char *argv[]) 
 {
-#if USE_MEMWATCH 
+#if OPS_USE_MEMWATCH 
    mwStatistics( 2 );
 #endif
 
-#if USE_OMP 
+#if OPS_USE_OMP 
 #pragma omp parallel num_threads(OMP_NUM_THREADS)
 {
 	int id = omp_get_thread_num();
@@ -41,8 +41,8 @@ int main(int argc, char *argv[])
 	//TestAppLAPACK(argc, argv);
 	//TestAppCCS(argc, argv);
 	//TestAppHYPRE(argc, argv);
-	//TestAppPHG(argc, argv);
-	TestAppSLEPC(argc, argv);
+	TestAppPHG(argc, argv);
+	//TestAppSLEPC(argc, argv);
     
 	/* create a PAS matrix to test */
 	//TestAppPAS_LAPACK(argc, argv);

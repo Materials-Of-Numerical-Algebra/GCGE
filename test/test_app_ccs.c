@@ -24,7 +24,7 @@ int TestMultiVec         (void *mat, struct OPS_ *ops);
 int TestOrth             (void *mat, struct OPS_ *ops);
 int TestLinearSolver     (void *mat, struct OPS_ *ops);
 int TestMultiLinearSolver(void *mat, struct OPS_ *ops);
-int TestEigenSolver      (void *A, void *B, int flag, int argc, char *argv[], struct OPS_ *ops);
+int TestEigenSolverGCG   (void *A, void *B, int flag, int argc, char *argv[], struct OPS_ *ops);
 int TestEigenSolverPAS   (void *A, void *B, int flag, int argc, char *argv[], struct OPS_ *ops);
 int TestMultiGrid        (void *A, void *B, struct OPS_ *ops);
 
@@ -32,7 +32,7 @@ int TestMultiGrid        (void *A, void *B, struct OPS_ *ops);
 static int CreateMatrixCCS (CCSMAT *ccs_matA, CCSMAT *ccs_matB);
 static int DestroyMatrixCCS(CCSMAT *ccs_matA, CCSMAT *ccs_matB);
 
-#if USE_UMFPACK
+#if OPS_USE_UMFPACK
 #include "umfpack.h"
 /*
   Create an application context to contain data needed by the
@@ -85,7 +85,7 @@ void UMFPACK_MultiLinearSolver(void *mat, void **b, void **x, int *start, int *e
 #endif
 int TestAppCCS(int argc, char *argv[]) 
 {
-#if USE_MPI
+#if OPS_USE_MPI
    MPI_Init(&argc, &argv);
 #endif
 
@@ -101,7 +101,7 @@ int TestAppCCS(int argc, char *argv[])
 
    ops = ccs_ops; matA = (void*)(&ccs_matA); matB = (void*)(&ccs_matB);
 
-   //TestMultiVec(matA,ops);
+   TestMultiVec(matA,ops);
    //TestMultiLinearSolver(matA,ops);
    //TestOrth(matA,ops);
    /* The following three fucntions can not be test for PASMAT */
@@ -110,7 +110,7 @@ int TestAppCCS(int argc, char *argv[])
     * flag == 1 表示仅使用外部多向量线性求解器
     * flag == 2 表示以外部多向量线性求解器为预条件子 */
    int flag = 0;
-#if USE_UMFPACK 
+#if OPS_USE_UMFPACK 
    AppCtx user; flag = 1;
    if (flag>=1) {
       AppCtxCreate(&user, &ccs_matA);
@@ -118,9 +118,9 @@ int TestAppCCS(int argc, char *argv[])
       ops->MultiLinearSolver = UMFPACK_MultiLinearSolver;
    }
 #endif
-   //TestEigenSolver(matA,matB,flag,argc,argv,ops);
-   TestEigenSolverPAS(matA,matB,flag,argc,argv,ops);
-#if USE_UMFPACK
+   //TestEigenSolverGCG(matA,matB,flag,argc,argv,ops);
+   //TestEigenSolverPAS(matA,matB,flag,argc,argv,ops);
+#if OPS_USE_UMFPACK
    if (flag>=1) {
       AppCtxDestroy(&user);
    }
@@ -134,7 +134,7 @@ int TestAppCCS(int argc, char *argv[])
    OPS_Destroy (&pas_ops);
 #endif
 
-#if USE_MPI
+#if OPS_USE_MPI
    MPI_Finalize();
 #endif
    return 0;
@@ -142,8 +142,8 @@ int TestAppCCS(int argc, char *argv[])
 
 static int CreateMatrixCCS(CCSMAT *ccs_matA, CCSMAT *ccs_matB) 
 {
-   //int n = 12, row, col; double h = 1.0/(n+1);
-   int n = 1000+7, col; double h = 1.0/(n+1);
+   int n = 12, row, col; double h = 1.0/(n+1);
+   //int n = 50000+7, col; double h = 1.0/(n+1);
    ccs_matA->nrows = n; ccs_matA->ncols = n;
    ccs_matA->j_col = malloc((n+1)*sizeof(int));
    ccs_matA->i_row = malloc((3*n-2)*sizeof(int));

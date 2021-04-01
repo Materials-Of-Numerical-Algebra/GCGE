@@ -7,7 +7,7 @@
 #include "app_phg.h"
 #include "app_pas.h"
 
-#if USE_MUMPS
+#if OPS_USE_MUMPS
 #include "dmumps_c.h"
 #define ICNTL(I) icntl[(I)-1] 
 #define INFOG(I) infog[(I)-1] 
@@ -20,15 +20,16 @@ int TestMultiVec         (void *mat, struct OPS_ *ops);
 int TestOrth             (void *mat, struct OPS_ *ops);
 int TestLinearSolver     (void *mat, struct OPS_ *ops);
 int TestMultiLinearSolver(void *mat, struct OPS_ *ops);
-int TestEigenSolver      (void *A, void *B, int flag, int argc, char *argv[], struct OPS_ *ops);
+int TestEigenSolverGCG   (void *A, void *B, int flag, int argc, char *argv[], struct OPS_ *ops);
+int TestEigenSolverPAS   (void *A, void *B, int flag, int argc, char *argv[], struct OPS_ *ops);
 int TestMultiGrid        (void *A, void *B, struct OPS_ *ops);
 
 
-#if USE_PHG
+#if OPS_USE_PHG
 int  CreateMatrixPHG (void **matA, void **matB, void **dofU, void **mapM, void **gridG, int argc, char *argv[]);
 int  DestroyMatrixPHG(void **matA, void **matB, void **dofU, void **mapM, void **gridG, int argc, char *argv[]);
 
-#if USE_MUMPS
+#if OPS_USE_MUMPS
 /*
   Create an application context to contain data needed by the
   application-provided call-back routines, ops->MultiLinearSolver().
@@ -45,6 +46,8 @@ typedef struct {
 
 static void AppCtxCreate(AppCtx *user, MAT *phg_mat)
 {
+	double time_start, time_end; 
+	time_start = MPI_Wtime();
 	int row, j, nnz_local, *pc;
 
 	user->mumps_solver.comm_fortran = MPI_Comm_c2f(phg_mat->rmap->comm);
@@ -105,12 +108,16 @@ static void AppCtxCreate(AppCtx *user, MAT *phg_mat)
 		printf("\n (PROC %d) ERROR RETURN: \tINFOG(1)= %d\n\t\t\t\tINFOG(2)= %d\n",
 				phg_mat->rmap->rank, user->mumps_solver.INFOG(1), user->mumps_solver.INFOG(2));
 
-
 	if (phg_mat->rmap->rank == 0) {
-		user->sol = malloc(20*user->n*sizeof(double));
+		/* 160 表示求解时, 至多160个向量一起算, blockSize<=160 */
+		user->sol = malloc(160*user->n*sizeof(double));
 	}
 	else {
 		user->sol = NULL;
+	}
+	time_end = MPI_Wtime();
+	if (phg_mat->rmap->rank == 0) {
+		printf("FACTORIZATION time %f\n", time_end-time_start);
 	}
 #if 0
 if (phg_mat->cmap->rank == 0) {
@@ -277,10 +284,10 @@ int TestAppPHG(int argc, char *argv[])
 
    //TestMultiVec(matA,ops);
    //TestMultiLinearSolver(matA,ops);
-   TestOrth(matB,ops);
+   //TestOrth(matB,ops);
 
    int flag = 0;
-#if USE_MUMPS
+#if OPS_USE_MUMPS
    AppCtx user;  /* VERY BAD efficiency */
    if (flag>=1) {
       AppCtxCreate(&user, (MAT*)matA);
@@ -288,12 +295,13 @@ int TestAppPHG(int argc, char *argv[])
       ops->MultiLinearSolver = MUMPS_MultiLinearSolver;
    }
 #endif
-   //TestEigenSolver(matA,matB,flag,argc,argv,ops);
-#if USE_MUMPS
+   TestEigenSolverGCG(matA,matB,flag,argc,argv,ops);
+#if OPS_USE_MUMPS
    if (flag>=1) {
       AppCtxDestroy(&user);
    }
 #endif
+   //TestEigenSolverGCG(matA,matB,0,argc,argv,ops);
    //TestMultiGrid(matA,matB,ops);
    /* 销毁phg矩阵 */
    OPS_Destroy (&phg_ops);
