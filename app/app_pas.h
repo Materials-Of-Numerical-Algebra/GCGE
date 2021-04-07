@@ -20,12 +20,14 @@ typedef struct PASMAT_ {
 	void ***QX;
 	void **QQ ; void **P;
 	int  num_levels; int level_aux;
+	int  size_XX;
 } PASMAT;
 typedef struct PASVEC_ {
 	void **x ; /* LAPACKVEC */
 	void ***q;
 	void **P ; 
 	int  num_levels; int level_aux;
+	int  size_x;
 } PASVEC;
 
 void OPS_PAS_Set (struct OPS_ *ops, struct OPS_ *app_ops);

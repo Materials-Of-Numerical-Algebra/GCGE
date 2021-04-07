@@ -21,10 +21,6 @@
 
 #if OPS_USE_PHG
 
-#if OPS_USE_INTEL_MKL
-#include	<mkl_spblas.h>
-#endif
-
 #ifdef DEBUG
 #undef DEBUG
 #endif
@@ -92,6 +88,13 @@ static void phgMatDotMultiVecLocal (MAT *A, VEC *x, VEC *y)
 #endif
 
 #if OPS_USE_INTEL_MKL
+	//mkl_set_num_threads_local(MKL_NUM_THREADS);
+	//#pragma omp parallel num_threads(MKL_NUM_THREADS)
+	//{
+	//	int id = omp_get_thread_num();
+	//	printf("%d thread\n",id);
+	//}
+
 	sparse_matrix_t csrA;
 	struct matrix_descr descr;
 	descr.type = SPARSE_MATRIX_TYPE_GENERAL;
@@ -148,16 +151,20 @@ static void phgMatDotMultiVecLocal (MAT *A, VEC *x, VEC *y)
 #else
 
 #if 0
-	double *dx, *dy, *dm; int *cols, i, j;
-	cols = A->packed_cols;
+	int *cols = A->packed_cols, i;
 	memset(y->data,0,nrows*x->nvec*sizeof(double));
+#if OPS_USE_OMP
+	#pragma omp parallel for schedule(static) num_threads(OMP_NUM_THREADS)
+#endif
 	for (i = 0; i < x->nvec; ++i) {
+	   double *dm, *dy, *dx;
 	   dm = A->packed_data;
 	   dy = y->data+nrows*i;
 	   dx = x->data+ncols*i;
-	   for (row = 0; row < nrows; ++row) {
-	      for (j = rowsSE[row]; j < rowsSE[row+1]; ++j) {
-		 dy[row] += (*dm++)*dx[cols[j]];
+	   int j, k;
+	   for (k = 0; k < nrows; ++k) {
+	      for (j = rowsSE[k]; j < rowsSE[k+1]; ++j) {
+		 dy[k] += (*dm++)*dx[cols[j]];
 	      }
 	   }
 	}
@@ -243,9 +250,9 @@ static void phgMatDotMultiVecRemote (MAT *A, VEC *x, VEC *y)
 			phgMapScatterBegin(A->cinfo, 1, x_data, offp_data);
 			/* multiply with remote data */
 			for (i = 0, v = y_data; i < A->rmap->nlocal; i++) {
-				j = A->rmap->nlocal + i;
-				pc = A->packed_cols + A->packed_ind[j];
-				pd = A->packed_data + A->packed_ind[j];
+				j  = A->rmap->nlocal + i;
+				pc = A->packed_cols  + A->packed_ind[j];
+				pd = A->packed_data  + A->packed_ind[j];
 				n = (INT)(A->packed_ind[j + 1] - A->packed_ind[j]);
 				if (n == 0) {
 					v++;
@@ -260,9 +267,9 @@ static void phgMatDotMultiVecRemote (MAT *A, VEC *x, VEC *y)
 			phgMapScatterEnd(A->cinfo, 1, x_data, offp_data);
 		}
 		for (i = 0, v = y_data; i < A->rmap->nlocal; i++) {
-			j = A->rmap->nlocal + i;
-			pc = A->packed_cols + A->packed_ind[j];
-			pd = A->packed_data + A->packed_ind[j];
+			j  = A->rmap->nlocal + i;
+			pc = A->packed_cols  + A->packed_ind[j];
+			pd = A->packed_data  + A->packed_ind[j];
 			n = (INT)(A->packed_ind[j + 1] - A->packed_ind[j]);
 			if (n == 0) {
 				v++;
@@ -314,9 +321,9 @@ static void phgMatDotMultiVec (MAT *A, VEC *x, VEC *y)
 			phgMapScatterBegin(A->cinfo, 1, x_data, offp_data);
 			/* multiply with remote data */
 			for (i = 0, v = y_data; i < A->rmap->nlocal; i++) {
-				j = A->rmap->nlocal + i;
-				pc = A->packed_cols + A->packed_ind[j];
-				pd = A->packed_data + A->packed_ind[j];
+				j  = A->rmap->nlocal + i;
+				pc = A->packed_cols  + A->packed_ind[j];
+				pd = A->packed_data  + A->packed_ind[j];
 				n = (INT)(A->packed_ind[j + 1] - A->packed_ind[j]);
 				if (n == 0) {
 					v++;
@@ -331,9 +338,9 @@ static void phgMatDotMultiVec (MAT *A, VEC *x, VEC *y)
 			phgMapScatterEnd(A->cinfo, 1, x_data, offp_data);
 		}
 		for (i = 0, v = y_data; i < A->rmap->nlocal; i++) {
-			j = A->rmap->nlocal + i;
-			pc = A->packed_cols + A->packed_ind[j];
-			pd = A->packed_data + A->packed_ind[j];
+			j  = A->rmap->nlocal + i;
+			pc = A->packed_cols  + A->packed_ind[j];
+			pd = A->packed_data  + A->packed_ind[j];
 			n = (INT)(A->packed_ind[j + 1] - A->packed_ind[j]);
 			if (n == 0) {
 				v++;

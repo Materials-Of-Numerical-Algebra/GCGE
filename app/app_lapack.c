@@ -94,7 +94,7 @@ static void DenseMatQtAP(char ntluA, char nsdC,
 					}
 					else {
 #if OPS_USE_OMP
-					    #pragma omp parallel for schedule(static) num_threads(OMP_NUM_THREADS)
+						#pragma omp parallel for schedule(static) num_threads(OMP_NUM_THREADS)
 #endif
 						for (idx = 0; idx < ncolsC; ++idx) {
 							matC[ldC*idx] = 0.0;
@@ -193,8 +193,30 @@ static void DenseMatQtAP(char ntluA, char nsdC,
 		}
 		else {
 			/* matW = matA*matP */
+#if OPS_USE_OMP
+			#pragma omp parallel num_threads(OMP_NUM_THREADS)
+			{
+				int id, length, offset;
+				id     = omp_get_thread_num();
+				length = ncolsW/OMP_NUM_THREADS;
+				offset = length*id;
+				if (id < ncolsW%OMP_NUM_THREADS) {
+					++length; offset += id;
+				}
+				else {
+					offset += ncolsW%OMP_NUM_THREADS;
+				} 
+				dgemm(&ntluA,&charN,&nrowsW,&length,&ncolsA,
+						&one, matA           ,&ldA,
+						      matP+offset*ldP,&ldP,
+						&zero,matW+offset*ldW,&ldW);
+			}
+#else
 			dgemm(&ntluA,&charN,&nrowsW,&ncolsW,&ncolsA,
-					&one,matA,&ldA,matP,&ldP,&zero,matW,&ldW);
+					&one, matA,&ldA,
+					      matP,&ldP,
+					&zero,matW,&ldW);
+#endif
 		}
 		/* matC = alpha*matQ^{\top}*matW + beta*matC */
 		DenseMatQtAP(ntluA,nsdC,nrowsA,nrowsA,nrowsC,ncolsC,
@@ -278,11 +300,8 @@ static void MultiVecLocalInnerProd (char nsdIP,
 		LAPACKVEC *x, LAPACKVEC *y, int is_vec, int *start, int *end, 
 		double *inner_prod, int ldIP, struct OPS_ *ops)
 {
-	int  nrows = end[0]-start[0], ncols = end[1]-start[1];
-	if (nrows==0||ncols==0) {
-		
-	}
-	else {
+	int nrows = end[0]-start[0], ncols = end[1]-start[1];
+	if (nrows>0 && ncols>0) {
 		DenseMatQtAP('S',nsdIP,x->nrows,y->nrows,nrows,ncols,
 			1.0,x->data+x->ldd*start[0],(x->ldd), /* Q */
 			    NULL                   ,0,        /* A */
@@ -513,7 +532,7 @@ static void MultiVecLinearComb (
 	}
 	return;
 }
-static void MultiVecQtAP (char ntsA, char nsdQAP, 
+static void MultiVecQtAP (char ntsA, char ntsdQAP, 
 		LAPACKVEC *mvQ, LAPACKMAT *matA, LAPACKVEC *mvP, int is_vec, 
 		int *start, int *end, double *qAp, int ldQAP,
 		LAPACKVEC *vec_ws, struct OPS_ *ops)
@@ -528,14 +547,35 @@ static void MultiVecQtAP (char ntsA, char nsdQAP,
 	else {
 		matA_data = matA->data; matA_ldd = matA->ldd; 
 	}
-	DenseMatQtAP(ntsA,nsdQAP,
-			mvQ->nrows,mvP->nrows, /* matA 的行列数 */
-			nrows     ,ncols,      /* matC 的行列数 */
-			alpha,mvQ->data+mvQ->ldd*start[0],mvQ->ldd, 
-			      matA_data                  ,matA_ldd,
-			      mvP->data+mvP->ldd*start[1],mvP->ldd,
-			beta ,qAp                        ,ldQAP,
-			vec_ws->data);
+	if (ntsdQAP=='T') {
+		double *dbl_ws = malloc(nrows*ncols*sizeof(double));
+		DenseMatQtAP(ntsA,'N',
+				mvQ->nrows,mvP->nrows, /* matA 的行列数 */
+				nrows     ,ncols,      /* matC 的行列数 */
+				alpha,mvQ->data+mvQ->ldd*start[0],mvQ->ldd, 
+				      matA_data                  ,matA_ldd,
+				      mvP->data+mvP->ldd*start[1],mvP->ldd,
+				beta ,dbl_ws                     ,nrows,
+				vec_ws->data);
+		double *source, *destin; int incx, incy, row;
+		source = dbl_ws; incx  = nrows;   
+		destin = qAp   ; incy  = 1;
+		for (row = 0; row < nrows; ++row) {
+			dcopy(&ncols,source,&incx,destin,&incy);
+			source += 1; destin += ldQAP;
+		}
+		free(dbl_ws);
+	}
+	else {
+		DenseMatQtAP(ntsA,ntsdQAP,
+				mvQ->nrows,mvP->nrows, /* matA 的行列数 */
+				nrows     ,ncols,      /* matC 的行列数 */
+				alpha,mvQ->data+mvQ->ldd*start[0],mvQ->ldd, 
+				      matA_data                  ,matA_ldd,
+				      mvP->data+mvP->ldd*start[1],mvP->ldd,
+				beta ,qAp                        ,ldQAP,
+				vec_ws->data);
+	}
 	return;
 }
 
@@ -959,7 +999,10 @@ void OPS_LAPACK_Set (struct OPS_ *ops)
 	ops->MultiVecLinearComb       = LAPACK_MultiVecLinearComb      ;
 	ops->MatDotMultiVec           = LAPACK_MatDotMultiVec          ;
 	ops->MatTransDotMultiVec      = LAPACK_MatTransDotMultiVec     ;
-	ops->MultiVecQtAP             = LAPACK_MultiVecQtAP            ;
+	if (0)
+		ops->MultiVecQtAP     = LAPACK_MultiVecQtAP            ;
+	else
+		ops->MultiVecQtAP     = DefaultMultiVecQtAP            ;
 	/* dense mat */
 	ops->lapack_ops               = NULL        ;
 	ops->DenseMatQtAP             = DenseMatQtAP;

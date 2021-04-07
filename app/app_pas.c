@@ -52,8 +52,19 @@ static void MultiVecCreateByMat (PASVEC **des_vec, int num_vec, PASMAT *src_mat,
 	(*des_vec)->level_aux  = level_aux; 
 	(*des_vec)->num_levels = src_mat->num_levels;
 	(*des_vec)->q = malloc((*des_vec)->num_levels*sizeof(void**));
-	ops->lapack_ops->MultiVecCreateByMat(&((*des_vec)->x),num_vec,
-		src_mat->XX,ops->lapack_ops);
+	(*des_vec)->size_x = src_mat->size_XX;
+	if (src_mat->XX==NULL) {
+		LAPACKMAT lapack_mat;
+		lapack_mat.nrows = src_mat->size_XX;
+		lapack_mat.ncols = src_mat->size_XX;
+		lapack_mat.ldd   = 0; lapack_mat.data  = NULL;
+		ops->lapack_ops->MultiVecCreateByMat(&((*des_vec)->x),num_vec,
+				(void *)(&lapack_mat),ops->lapack_ops);
+	}
+	else {
+		ops->lapack_ops->MultiVecCreateByMat(&((*des_vec)->x),num_vec,
+				src_mat->XX,ops->lapack_ops);
+	}
 	ops->app_ops->MultiVecCreateByMat(&((*des_vec)->q[level_aux]),num_vec,
 		src_mat->QQ[level_aux],ops->app_ops);
 	return;
@@ -66,6 +77,7 @@ static void MultiVecCreateByMultiVec (PASVEC **des_vec, int num_vec, PASVEC *src
 	(*des_vec)->level_aux  = level_aux;
 	(*des_vec)->num_levels = src_vec->num_levels;
 	(*des_vec)->q = malloc((*des_vec)->num_levels*sizeof(void**));
+	(*des_vec)->size_x = src_vec->size_x;
 	ops->lapack_ops->MultiVecCreateByMultiVec(&((*des_vec)->x),num_vec,
 		src_vec->x,ops->lapack_ops);
 	ops->app_ops->MultiVecCreateByMultiVec(&((*des_vec)->q[level_aux]),num_vec,
@@ -308,31 +320,40 @@ static void MultiVecLinearComb (
 	}	
 	return;
 }
-static void MultiVecQtAP (char ntsA, char nsdQAP, 
+static void MultiVecQtAP (char ntsA, char ntsdQAP, 
 		PASVEC *mvQ, PASMAT *matA, PASVEC *mvP, int is_vec, 
 		int  *startQP, int *endQP, double *qAp, int ldQAP,
 		PASVEC *mv_ws, struct OPS_ *ops)
 {
-	assert(matA->XX==NULL&&matA->QX==NULL);
+	assert(matA->XX==NULL&&matA->QX==NULL&&ntsdQAP!='T');
 	int level_aux = mvQ->level_aux;
 	int nrows = endQP[0]-startQP[0], ncols = endQP[1]-startQP[1];
 	/* q QQ p */
-	ops->app_ops->MultiVecQtAP(ntsA,nsdQAP,
+	ops->app_ops->MultiVecQtAP(ntsA,ntsdQAP,
 		mvQ->q[level_aux],matA->QQ[level_aux],mvP->q[level_aux],is_vec,
 		startQP,endQP,qAp,ldQAP,
 		mv_ws->q[level_aux],ops->app_ops);
+
 	double *dataQ, *dataP; int lddQ, lddP, sizeA;
 	lddQ  = ((LAPACKVEC*)mvQ->x)->ldd;
 	lddP  = ((LAPACKVEC*)mvP->x)->ldd;
 	dataQ = ((LAPACKVEC*)mvQ->x)->data+lddQ*startQP[0];
 	dataP = ((LAPACKVEC*)mvP->x)->data+lddP*startQP[1];
 	sizeA = ((LAPACKVEC*)mvQ->x)->nrows;
-	ops->lapack_ops->DenseMatQtAP('S',nsdQAP,sizeA,sizeA,nrows,ncols,
-		1.0,dataQ,lddQ , /* Q */
-			NULL ,-1   , /* A */
-			dataP,lddP , /* P */
-		1.0,qAp  ,ldQAP,
-		NULL);
+	//ops->Printf("ntsdQAP = %c, nrows = %d, ncols = %d, ldQAP = %d\n",ntsdQAP,nrows,ncols,ldQAP);
+	//wheh ntsdQAP=='T', have bug here
+	//ops->lapack_ops->DenseMatQtAP('S','N',sizeA,sizeA,ncols,nrows,
+	//		1.0,dataP,lddP , /* Q */
+	//		    NULL ,-1   , /* A */
+	//		    dataQ,lddQ , /* P */
+	//		1.0,qAp  ,ldQAP,
+	//		NULL);
+	ops->lapack_ops->DenseMatQtAP('S',ntsdQAP,sizeA,sizeA,nrows,ncols,
+			1.0,dataQ,lddQ , /* Q */
+			    NULL ,-1   , /* A */
+			    dataP,lddP , /* P */
+			1.0,qAp  ,ldQAP,
+			NULL);
 	return;
 }
 
@@ -475,33 +496,34 @@ static void PAS_MultiVecLinearComb (
 			beta , incb, ops);
 	return;
 }
-static void PAS_MultiVecQtAP (char ntsA, char nsdQAP, 
+static void PAS_MultiVecQtAP (char ntsA, char ntsdQAP, 
 		void **mvQ , void *matA, void   **mvP, int is_vec, 
 		int  *start, int  *end , double *qAp , int ldQAP ,
 		void **mv_ws, struct OPS_ *ops)
 {
    	if (matA==NULL) {
-	   DefaultMultiVecQtAP (ntsA,nsdQAP,mvQ,matA,mvP,is_vec, 
+	   DefaultMultiVecQtAP (ntsA,ntsdQAP,mvQ,matA,mvP,is_vec, 
 		 start,end,qAp,ldQAP,mv_ws,ops);
    	}
    	else {
 	   /* 若XX为单位矩阵, QX为零矩阵, 做特殊处理 */
-	   if (((PASMAT*)matA)->XX==NULL&&((PASMAT*)matA)->QX==NULL) {
+	   if (ntsdQAP!='T'&&((PASMAT*)matA)->XX==NULL&&((PASMAT*)matA)->QX==NULL) {
 	      /* q QQ p */
 	      /* y    x */
-	      MultiVecQtAP (ntsA,nsdQAP,(PASVEC *)mvQ,(PASMAT *)matA,(PASVEC *)mvP,is_vec, 
-		    start,end,qAp,ldQAP,(PASVEC *)mv_ws,ops);
+	      MultiVecQtAP (ntsA,ntsdQAP,(PASVEC *)mvQ,(PASMAT *)matA,(PASVEC *)mvP,is_vec, 
+	            start,end,qAp,ldQAP,(PASVEC *)mv_ws,ops);
 	   }
 	   else {
-	      DefaultMultiVecQtAP (ntsA,nsdQAP,mvQ,matA,mvP,is_vec, 
+	      DefaultMultiVecQtAP (ntsA,ntsdQAP,mvQ,matA,mvP,is_vec, 
 		    start,end,qAp,ldQAP,mv_ws,ops);
 	   }
    	}
   	   
 #if OPS_USE_MPI
+	assert(ntsdQAP!='T');
 	/* 创建矩阵块类型, 用于MPI通讯 */
 	int nrows = end[0]-start[0], ncols = end[1]-start[1];
-	if (nsdQAP=='D') nrows = 1; 
+	if (ntsdQAP=='D') nrows = 1; 
 	MPI_Datatype data_type;
 	CreateMPIDataTypeSubMat(&data_type,nrows,ncols,ldQAP);
 	/* 组间通讯, 将内积广播给 1 组 */
