@@ -143,9 +143,9 @@ static void AppCtxDestroy(AppCtx *user)
 	user->rows = NULL; user->cols = NULL;
 	return;
 }
-void MUMPS_MultiLinearSolver(void *mat, void **b, void **x, int *start, int *end, struct OPS_ *ops)
+static void MUMPS_MultiLinearSolver(void *mat, void **b, void **x, int *start, int *end, struct OPS_ *ops)
 {
-   ops->Printf("MUMPS_MultiLinearSolver\n");
+   //ops->Printf("MUMPS_MultiLinearSolver\n");
    assert(end[0]-start[0]==end[1]-start[1]);
    int nvec = end[0]-start[0];
    double *data_b, *data_x;
@@ -163,8 +163,8 @@ void MUMPS_MultiLinearSolver(void *mat, void **b, void **x, int *start, int *end
    int *dsps = cnts + map->nprocs;
    int i;
 
-   double time_start, time_end; 
-   time_start = MPI_Wtime();
+   //double time_start, time_end; 
+   //time_start = MPI_Wtime();
    for (i = 0; i < map->nprocs; i++) {
 	   cnts[i] = map->partition[i + 1] - map->partition[i];
 	   dsps[i] = map->partition[i];
@@ -188,8 +188,8 @@ void MUMPS_MultiLinearSolver(void *mat, void **b, void **x, int *start, int *end
    else {
 	   MPI_Wait(request+map->rank,MPI_STATUS_IGNORE);
    }
-   time_end = MPI_Wtime();
-   ops->Printf("GATHER time %f\n", time_end-time_start);
+   //time_end = MPI_Wtime();
+   //ops->Printf("GATHER time %f\n", time_end-time_start);
 
 #if 0
    int k;
@@ -200,7 +200,7 @@ void MUMPS_MultiLinearSolver(void *mat, void **b, void **x, int *start, int *end
 	   }
    }
 #endif
-   time_start = MPI_Wtime();
+   //time_start = MPI_Wtime();
 
    user->mumps_solver.nrhs = nvec;
    user->mumps_solver.lrhs = user->n;
@@ -218,10 +218,10 @@ void MUMPS_MultiLinearSolver(void *mat, void **b, void **x, int *start, int *end
 	   }
    }
 #endif
-   time_end = MPI_Wtime();
-   ops->Printf("CALCULATE time %f\n", time_end-time_start);
+   //time_end = MPI_Wtime();
+   //ops->Printf("CALCULATE time %f\n", time_end-time_start);
 
-   time_start = MPI_Wtime();
+   //time_start = MPI_Wtime();
    if (map->rank == 0) {
 	   for (i = 0; i < map->nprocs; ++i) {
 		   MPI_Isend(user->sol+dsps[i], 1, rowType[i], i, i, map->comm, request+i);
@@ -243,8 +243,8 @@ void MUMPS_MultiLinearSolver(void *mat, void **b, void **x, int *start, int *end
    free(rowType);
    free(request);
 
-   time_end = MPI_Wtime();
-   ops->Printf("SCATTER time %f\n", time_end-time_start);
+   //time_end = MPI_Wtime();
+   //ops->Printf("SCATTER time %f\n", time_end-time_start);
 
 #if 0
    if (phg_mat->cmap->rank == 0) {
@@ -258,7 +258,7 @@ void MUMPS_MultiLinearSolver(void *mat, void **b, void **x, int *start, int *end
    phg_vec_b->data = data_b; phg_vec_x->data = data_x;
 
 
-   ops->Printf("MUMPS_MultiLinearSolver\n");
+   //ops->Printf("MUMPS_MultiLinearSolver\n");
    return;
 }
 #endif
@@ -288,7 +288,7 @@ int TestAppPHG(int argc, char *argv[])
 
    int flag = 0;
 #if OPS_USE_MUMPS
-   AppCtx user;  /* VERY BAD efficiency */
+   AppCtx user; flag = 1; /* VERY BAD efficiency */
    if (flag>=1) {
       AppCtxCreate(&user, (MAT*)matA);
       ops->multi_linear_solver_workspace = (void*)&user;

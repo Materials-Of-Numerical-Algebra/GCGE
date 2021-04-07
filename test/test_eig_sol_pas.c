@@ -31,7 +31,7 @@ int TestEigenSolverPAS(void *A, void *B, int flag, int argc, char *argv[], struc
 	int nevGiven = 0, block_size = nevConv/5, nevMax = 2*nevConv;
 	int nevInit  = nevMax;
 	int    max_iter_pas = 50, max_iter_rr = 100, block_size_rr = block_size;
-	double tol_pas[2] = {1e-1,1e-6}, tol_rr[3] = {1e-1,1e-8};
+	double tol_pas[2] = {1e-1,1e-8}, tol_rr[3] = {1e-1,1e-8};
 	int    max_iter_gcg = 10000;
 	double tol_gcg[2] = {1e-1,1e-8};
 
@@ -55,10 +55,11 @@ int TestEigenSolverPAS(void *A, void *B, int flag, int argc, char *argv[], struc
 	int idx; 
 	/* AMG 做为线性解法器的 GCG */
 	void   **A_array, **B_array, **P_array; 
-	int    level, num_levels = 4;
+	int    level, num_levels = 3;
+	ops->Printf("TestEigenSolverPAS\n");
 	ops->MultiGridCreate (&A_array,&B_array,&P_array,&num_levels,A,B,ops);
 	--num_levels;	
-
+	ops->Printf("TestEigenSolverPAS\n");
 	void   ***amg_mv_ws[7];
 	/* 非调试情形, amg_mv_ws : 0 1 2 3 4 5 sizeX, 6 sizeV */	
 	for (idx = 0; idx < 7; ++idx) {
@@ -79,12 +80,9 @@ int TestEigenSolverPAS(void *A, void *B, int flag, int argc, char *argv[], struc
 		}
 	}
 
+	ops->Printf("TestEigenSolverPAS\n");
 	double time_start, time_interval;
-#if OPS_USE_MPI
-	time_start = MPI_Wtime();
-#else
-	time_start = clock();
-#endif
+	time_start = ops->GetWtime();
 
 #if OPS_USE_PAS
 	ops->Printf("===============================================\n");
@@ -100,15 +98,9 @@ int TestEigenSolverPAS(void *A, void *B, int flag, int argc, char *argv[], struc
 	ops->EigenSolver(A,B,eval,evec,nevGiven,&nevGiven,ops);
 #endif 
 
-#if OPS_USE_MPI
-	time_interval = MPI_Wtime() - time_start;
+	time_interval = ops->GetWtime() - time_start;
 	ops->Printf("Time is %.3f\n", time_interval);
-	time_start    = MPI_Wtime();
-#else
-	time_interval = clock()-time_start;
-	ops->Printf("Time is %.3f\n", (double)(time_interval)/CLOCKS_PER_SEC);
-	time_start    = clock();
-#endif
+	time_start    = ops->GetWtime();
 
 	/* 以 PAS 得到的特征对为初值 重新调用 GCG */
 	void **gcg_mv_ws[4];
@@ -195,13 +187,8 @@ int TestEigenSolverPAS(void *A, void *B, int flag, int argc, char *argv[], struc
 			((GCGSolver*)ops->eigen_solver_workspace)->numIter, nevConv);
 	ops->Printf("++++++++++++++++++++++++++++++++++++++++++++++\n");
 	
-#if OPS_USE_MPI
-    time_interval = MPI_Wtime() - time_start;
+	time_interval = ops->GetWtime() - time_start;
 	ops->Printf("Time is %.3f\n", time_interval);
-#else
-    time_interval = clock()-time_start;
-	ops->Printf("Time is %.3f\n", (double)(time_interval)/CLOCKS_PER_SEC);
-#endif
 	
 
 	for (idx = 0; idx < 7; ++idx) {		

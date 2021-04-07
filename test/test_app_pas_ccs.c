@@ -81,14 +81,14 @@ int TestAppPAS_CCS(int argc, char *argv[])
    pas_matB.QQ = malloc(sizeof(void*));
    pas_matB.QX = NULL; 
    pas_matB.XX = NULL;
+   pas_matB.size_XX = n;
    pas_matB.QQ[0] = (void*)&ccs_matB;
 
    ops = pas_ops; matA = &pas_matA; matB = &pas_matB;
 
-
    //TestMultiVec(matA,ops);
    //TestMultiLinearSolver(matA,ops);
-   //TestOrth(matA,ops);
+   //TestOrth(matB,ops);
    /* flag == 0 表示不使用外部多向量线性求解器
     * flag == 1 表示仅使用外部多向量线性求解器
     * flag == 2 表示以外部多向量线性求解器为预条件子 */
@@ -116,7 +116,7 @@ int TestAppPAS_CCS(int argc, char *argv[])
 static int CreateMatrixCCS(CCSMAT *ccs_matA, CCSMAT *ccs_matB) 
 {
    int n = 50, col; double h = 1.0/(n+1);
-   //int n = 1000+7, col; double h = 1.0/(n+1);
+   //int n = 800+7, col; double h = 1.0/(n+1);
    ccs_matA->nrows = n; ccs_matA->ncols = n;
    ccs_matA->j_col = malloc((n+1)*sizeof(int));
    ccs_matA->i_row = malloc((3*n-2)*sizeof(int));

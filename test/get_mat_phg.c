@@ -98,11 +98,17 @@ CreateMatrixPHG(void **matA, void **matB, void **dofU, void **mapM, void **gridG
 	
 	phgOptionsRegisterInt   ("-eps_lobpcg_blocksize", "int", &int_tmp);
 	phgOptionsRegisterFloat ("-eps_lobpcg_restart"  , "dbl", &dbl_tmp);	
+
+	phgOptionsRegisterString("-st_ksp_type"  , "str", &str_tmp);
+	phgOptionsRegisterString("-st_pc_type"   , "str", &str_tmp);
+	phgOptionsRegisterString("-st_ksp_rtol"  , "dbl", &dbl_tmp);
+	phgOptionsRegisterInt   ("-st_ksp_max_it", "int", &int_tmp);
 		
    	phgOptionsRegisterInt   ("-gcge_max_niter", "int", &int_tmp);
    	phgOptionsRegisterFloat ("-gcge_abs_tol"  , "dbl", &dbl_tmp);
    	phgOptionsRegisterFloat ("-gcge_rel_tol"  , "dbl", &dbl_tmp);
    	phgOptionsRegisterInt   ("-gcge_compW_cg_max_iter"  , "int", &int_tmp);
+   	phgOptionsRegisterInt   ("-gcge_compW_cg_rate"      , "dbl", &dbl_tmp);
    	phgOptionsRegisterInt   ("-gcge_compW_cg_auto_shift", "int", &int_tmp);
    	phgOptionsRegisterInt   ("-gcge_compW_cg_shift"     , "dbl", &dbl_tmp);
    	phgOptionsRegisterInt   ("-gcge_compW_cg_order"     , "int", &int_tmp);

@@ -101,7 +101,7 @@ int TestAppCCS(int argc, char *argv[])
 
    ops = ccs_ops; matA = (void*)(&ccs_matA); matB = (void*)(&ccs_matB);
 
-   TestMultiVec(matA,ops);
+   //TestMultiVec(matA,ops);
    //TestMultiLinearSolver(matA,ops);
    //TestOrth(matA,ops);
    /* The following three fucntions can not be test for PASMAT */
@@ -118,8 +118,7 @@ int TestAppCCS(int argc, char *argv[])
       ops->MultiLinearSolver = UMFPACK_MultiLinearSolver;
    }
 #endif
-   //TestEigenSolverGCG(matA,matB,flag,argc,argv,ops);
-   //TestEigenSolverPAS(matA,matB,flag,argc,argv,ops);
+   TestEigenSolverGCG(matA,matB,flag,argc,argv,ops);
 #if OPS_USE_UMFPACK
    if (flag>=1) {
       AppCtxDestroy(&user);
@@ -142,8 +141,8 @@ int TestAppCCS(int argc, char *argv[])
 
 static int CreateMatrixCCS(CCSMAT *ccs_matA, CCSMAT *ccs_matB) 
 {
-   int n = 12, row, col; double h = 1.0/(n+1);
-   //int n = 50000+7, col; double h = 1.0/(n+1);
+   //int n = 12, row, col; double h = 1.0/(n+1);
+   int n = 800+7, col; double h = 1.0/(n+1);
    ccs_matA->nrows = n; ccs_matA->ncols = n;
    ccs_matA->j_col = malloc((n+1)*sizeof(int));
    ccs_matA->i_row = malloc((3*n-2)*sizeof(int));

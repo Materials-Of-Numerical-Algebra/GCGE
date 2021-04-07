@@ -16,6 +16,17 @@
 #include "ops.h"
 #include "app_slepc.h"
 #include "app_pas.h"
+
+#if OPS_USE_MUMPS
+#include "dmumps_c.h"
+#define ICNTL(I) icntl[(I)-1] 
+#define INFOG(I) infog[(I)-1] 
+#define CNTL(I)  cntl[(I)-1] 
+#define INFO(I)  info[(I)-1]
+//#include "petscmat.h"
+#endif
+
+
 /* run this program using the console pauser or add your own getch, system("pause") or input loop */
 int TestVec              (void *mat, struct OPS_ *ops);
 int TestMultiVec         (void *mat, struct OPS_ *ops);
@@ -39,12 +50,12 @@ int TestEPS(void *A, void *B, int flag, int argc, char *argv[], struct OPS_ *ops
   Create an application context to contain data needed by the
   application-provided call-back routines, ops->MultiLinearSolver().
 */
+#if 0
 typedef struct {
 	KSP ksp;
 	Vec rhs;
 	Vec sol;
 } AppCtx;
-
 static void AppCtxCreate(AppCtx *user, Mat petsc_mat)
 {
 	double time_start, time_end; 
@@ -60,8 +71,6 @@ static void AppCtxCreate(AppCtx *user, Mat petsc_mat)
 	PetscOptionsGetBool(NULL,NULL,"-use_mumps_ch",&flg_mumps_ch,NULL);
 	if (flg_mumps || flg_mumps_ch) {
 		KSPSetType(ksp,KSPPREONLY);
-		PetscInt  ival,icntl;
-		PetscReal val;
 		KSPGetPC(ksp,&pc);
 		if (flg_mumps) {
 			PCSetType(pc,PCLU);
@@ -73,17 +82,18 @@ static void AppCtxCreate(AppCtx *user, Mat petsc_mat)
 		PCFactorSetUpMatSolverType(pc); /* call MatGetFactor() to create F */
 		PCFactorGetMatrix(pc,&F);
 
-		/* sequential ordering */
-		icntl = 7; ival = 2;
-		MatMumpsSetIcntl(F,icntl,ival);
+		MatMumpsSetIcntl(F, 1,-1);  /* the output stream for error messages */
+		MatMumpsSetIcntl(F, 2,-1);  /* the output stream for diagnostic printing and statistics local to each MPI process */
+		MatMumpsSetIcntl(F, 3,-1);  /* the output stream for global information */
+		MatMumpsSetIcntl(F, 4, 0);  /* errors, warnings and information on input, output parameters printed.*/
+		//MatMumpsSetIcntl(F, 5, 0);  /* assembled format */
+		MatMumpsSetIcntl(F, 9, 1);  /* AX = B is solved */
+		MatMumpsSetIcntl(F,10, 0);  /* maximum number of steps of iterative refinement */
+		//MatMumpsSetIcntl(F,18, 3);  /* the distributed matrix */
+		//MatMumpsSetIcntl(F,20, 0);  /* the dense format of the right-hand side */
+		//MatMumpsSetIcntl(F,21, 1);  /* the distributed format of the solution */
 
-		/* threshold for row pivot detection */
-		MatMumpsSetIcntl(F,24,1);
-		icntl = 3; val = 1.e-6;
-		MatMumpsSetCntl(F,icntl,val);
-
-		/* compute determinant of A */
-		MatMumpsSetIcntl(F,33,0);
+		MatMumpsSetCntl(F,2,0.0);   /* stopping criterion for iterative refinement */
 	}
 	KSPSetFromOptions(ksp);
 	/* Get info from matrix factors */
@@ -103,7 +113,7 @@ static void AppCtxDestroy(AppCtx *user)
 	KSPDestroy(&(user->ksp));
 	return;
 }
-void KSP_MultiLinearSolver(void *mat, void **b, void **x, int *start, int *end, struct OPS_ *ops)
+static void KSP_MultiLinearSolver(void *mat, void **b, void **x, int *start, int *end, struct OPS_ *ops)
 {
 	assert(end[0]-start[0] == end[1]-start[1]);
 	AppCtx *user = (AppCtx*)ops->multi_linear_solver_workspace;
@@ -117,6 +127,258 @@ void KSP_MultiLinearSolver(void *mat, void **b, void **x, int *start, int *end, 
 	}
 	return;
 }
+#endif
+
+#if OPS_USE_MUMPS
+typedef struct {
+	DMUMPS_STRUC_C mumps;
+	MPI_Comm       comm;
+
+	int rank   ; int nprocs;
+	int nglobal; int nlocal; int nnz_local;
+	int *rows  ; int *cols ; double *values;
+	double *sol;
+} AppCtx;
+
+static void AppCtxCreate(AppCtx *user, Mat petsc_mat)
+{
+	//printf("AppCtxCreate\n");
+	double time_start, time_end; 
+	time_start = MPI_Wtime();
+
+	user->comm = PetscObjectComm((PetscObject)petsc_mat);
+	MPI_Comm_rank(user->comm,&user->rank);
+	MPI_Comm_size(user->comm,&user->nprocs);
+
+	user->mumps.comm_fortran = MPI_Comm_c2f(user->comm);
+	user->mumps.par =  1;
+	user->mumps.sym =  0; /* unsymmetric.*/
+	user->mumps.job = -1; /* initializes an instance of the package */
+	dmumps_c(&(user->mumps));
+
+	PetscInt          row, row_start, row_end, nnz;
+	const PetscInt    *cols;
+	const PetscScalar *values;
+
+	MatGetSize     (petsc_mat,&user->nglobal,NULL);
+	MatGetLocalSize(petsc_mat,&user->nlocal ,NULL);
+	MatGetOwnershipRange(petsc_mat,&row_start,&row_end);
+
+	user->nnz_local = 0;
+	for (row = row_start; row < row_end; ++row) {
+		MatGetRow(petsc_mat, row, &nnz, NULL, NULL);	
+		user->nnz_local += nnz;
+		MatRestoreRow(petsc_mat, row, &nnz, NULL, NULL);	
+	}
+	//printf("nlocal = %d, nglobal = %d, rows_local = %d,%d, nnz_local = %d\n",
+	//	user->nlocal,user->nglobal,row_start,row_end,user->nnz_local);
+
+	user->rows   = malloc(user->nnz_local*sizeof(int));
+	user->cols   = malloc(user->nnz_local*sizeof(int));
+	user->values = malloc(user->nnz_local*sizeof(double));
+
+	int k = 0, i;
+	for (row = row_start; row < row_end; ++row) {
+		MatGetRow(petsc_mat, row, &nnz, &cols, &values);
+		//printf("row = %d, nnz = %d, cols = %d, val = %f\n",row,nnz,cols[0],values[0]);
+		for (i = 0; i < nnz; ++i) {
+			user->rows[k]   = 1 + row;
+			user->cols[k]   = 1 + cols[i];
+			user->values[k] = values[i];
+			++k;
+		}
+		MatRestoreRow(petsc_mat, row, &nnz, &cols, &values);	
+	}
+
+	user->mumps.n       = user->nglobal;
+	user->mumps.nnz_loc = user->nnz_local;
+	user->mumps.irn_loc = user->rows;
+	user->mumps.jcn_loc = user->cols;
+	user->mumps.a_loc   = user->values;
+#if 0
+	user->mumps.ICNTL(1)  =  6; /* the output stream for error messages */
+	user->mumps.ICNTL(2)  =  1; /* the output stream for diagnostic printing and statistics local to each MPI process */
+	user->mumps.ICNTL(3)  =  6; /* the output stream for global information */
+	user->mumps.ICNTL(4)  =  4; /* errors, warnings and information on input, output parameters printed.*/
+#else
+	user->mumps.ICNTL(1)  = -1; /* the output stream for error messages */
+	user->mumps.ICNTL(2)  = -1; /* the output stream for diagnostic printing and statistics local to each MPI process */
+	user->mumps.ICNTL(3)  = -1; /* the output stream for global information */
+	user->mumps.ICNTL(4)  =  0; /* errors, warnings and information on input, output parameters printed.*/
+#endif
+	user->mumps.ICNTL(5)  =  0; /* assembled format */
+	user->mumps.ICNTL(9)  =  1; /* AX = B is solved */
+	user->mumps.ICNTL(10) =  0; /* maximum number of steps of iterative refinement */
+  	user->mumps.CNTL(2)   =0.0; /* stopping criterion for iterative refinement */
+	user->mumps.ICNTL(18) =  3; /* the distributed matrix */
+	user->mumps.ICNTL(20) =  0; /* the dense format of the right-hand side */
+	user->mumps.ICNTL(21) =  0; /* the centralized format of the solution */
+	/* factorization */
+	user->mumps.job = 4; /* perform the analysis and the factorization */
+	dmumps_c(&(user->mumps));
+	if (user->mumps.INFOG(1)<0)
+		printf("\n (PROC %d) ERROR RETURN: \tINFOG(1)= %d\n\t\t\t\tINFOG(2)= %d\n",
+				user->rank, user->mumps.INFOG(1), user->mumps.INFOG(2));
+
+	if (user->rank == 0) {
+		/* 160 表示求解时, 至多160个向量一起算, blockSize<=160 */
+		user->sol = malloc(160*user->nglobal*sizeof(double));
+	}
+	else {
+		user->sol = NULL;
+	}
+	time_end = MPI_Wtime();
+	if (user->rank == 0) {
+		printf("FACTORIZATION time %f\n", time_end-time_start);
+	}
+#if 0
+if (user->rank == 0) {
+	printf("%d,%d,%d,%d\n",sizeof(int),sizeof(MUMPS_INT),sizeof(MUMPS_INT8),sizeof(double));
+	printf("%d n = %d, nnz_loc = %ld, nnz_local = %d\n",user->rank, user->mumps.n, user->mumps.nnz_loc,nnz_local);
+	printf("%d nlocal = %d, nglobal = %d\n",user->rank, user->nlocal, user->nglobal);
+	for (j = 0; j < nnz_local; j++) {
+		printf("%d (%d,%d) %.4e\n", user->rank,
+				user->mumps.irn_loc[j],user->mumps.jcn_loc[j],user->mumps.a_loc[j]);
+	}
+}
+#endif
+
+	return;
+}
+static void AppCtxDestroy(AppCtx *user)
+{
+	user->mumps.job = -2; /* terminates an instance of the package */
+	dmumps_c(&(user->mumps));
+	if (user->sol!=NULL) free(user->sol);
+	user->sol = NULL;
+	free(user->rows) ; free(user->cols) ; free(user->values) ;
+	user->rows = NULL; user->cols = NULL; user->values = NULL;
+	return;
+}
+static void MUMPS_MultiLinearSolver(void *mat, void **b, void **x, int *start, int *end, struct OPS_ *ops)
+{
+   //ops->Printf("MUMPS_MultiLinearSolver\n");
+   assert(end[0]-start[0]==end[1]-start[1]);
+   int nvec = end[0]-start[0];
+   double *data_b, *data_x;
+   AppCtx *user     = (AppCtx*)ops->multi_linear_solver_workspace;
+   Mat    petsc_mat = (Mat)mat;
+   BV     bv_b      = (BV)b;
+   BV     bv_x      = (BV)x;
+
+   BVGetArray(bv_b,&data_b);
+   BVGetArray(bv_x,&data_x);
+
+   const PetscInt *ranges;
+   MatGetOwnershipRanges(petsc_mat,&ranges);
+   int nlocal = user->nlocal;
+   int *cnts  = malloc(2 * user->nprocs * sizeof(*cnts));
+   int *dsps  = cnts + user->nprocs;
+   int i;
+
+   //double time_start, time_end; 
+   //time_start = MPI_Wtime();
+   for (i = 0; i < user->nprocs; i++) {
+	   cnts[i] = ranges[i + 1] - ranges[i];
+	   dsps[i] = ranges[i];
+   }
+   MPI_Datatype *rowType = malloc(user->nprocs*sizeof(MPI_Datatype)); 
+   MPI_Request  *request = malloc(user->nprocs*sizeof(MPI_Request ));
+   for (i = 0; i < user->nprocs; ++i) {
+	   MPI_Type_vector(nvec, cnts[i], user->nglobal, MPI_DOUBLE, rowType+i);
+	   MPI_Type_commit(rowType+i);
+   }
+
+   assert(cnts[user->rank] == nlocal);
+
+   MPI_Isend(data_b+start[0]*nlocal, nvec*cnts[user->rank], MPI_DOUBLE, 0, user->rank, user->comm, request+user->rank);
+   if (user->rank == 0) {
+	   for (i = 0; i < user->nprocs; ++i) {
+		   MPI_Irecv(user->sol+dsps[i], 1, rowType[i], i, i, user->comm, request+i);
+	   }
+	   for (i = 0; i < user->nprocs; ++i) {
+		   MPI_Wait(request+i,MPI_STATUS_IGNORE);
+	   }
+   }
+   else {
+	   MPI_Wait(request+user->rank,MPI_STATUS_IGNORE);
+   }
+   //time_end = MPI_Wtime();
+   //ops->Printf("GATHER time %f\n", time_end-time_start);
+
+#if 0
+   int k;
+   if (phg_mat->cmap->rank == 0) {
+	   printf("==========rhs========\n");
+	   for (k = 0; k < user->nglobal; ++k) {
+		   printf("%.4e\n", user->sol[k]);
+	   }
+   }
+#endif
+   //time_start = MPI_Wtime();
+
+   user->mumps.nrhs = nvec;
+   user->mumps.lrhs = user->nglobal;
+   user->mumps.rhs  = user->sol;
+   user->mumps.job  = 3;
+   dmumps_c(&(user->mumps));
+   if (user->mumps.infog[0]<0)
+	   printf("\n (PROC %d) ERROR RETURN: \tINFOG(1)= %d\n\t\t\t\tINFOG(2)= %d\n",
+			   user->rank, user->mumps.INFOG(1), user->mumps.INFOG(2));
+#if 0
+   if (user->rank == 0) {
+	   printf("==========sol========\n");
+	   for (k = 0; k < user->nglobal; ++k) {
+		   printf("%.4e\n", user->sol[k]);
+	   }
+   }
+#endif
+   //time_end = MPI_Wtime();
+   //ops->Printf("CALCULATE time %f\n", time_end-time_start);
+
+   //time_start = MPI_Wtime();
+   if (user->rank == 0) {
+	   for (i = 0; i < user->nprocs; ++i) {
+		   MPI_Isend(user->sol+dsps[i], 1, rowType[i], i, i, user->comm, request+i);
+	   }
+   }
+   MPI_Irecv(data_x+start[1]*nlocal, nvec*cnts[user->rank], MPI_DOUBLE, 0, user->rank, user->comm, request+user->rank);
+   if (user->rank == 0) {
+	   for (i = 0; i < user->nprocs; ++i) {
+		   MPI_Wait(request+i,MPI_STATUS_IGNORE);
+	   }
+   }
+   else {
+	   MPI_Wait(request+user->rank,MPI_STATUS_IGNORE);
+   }
+
+   for (i = 0; i < user->nprocs; ++i) {
+	   MPI_Type_free(rowType+i);
+   }
+   free(rowType);
+   free(request);
+
+   //time_end = MPI_Wtime();
+   //ops->Printf("SCATTER time %f\n", time_end-time_start);
+
+#if 0
+   if (user->rank == 0) {
+	   printf("==========x========\n");
+	   for (k = 0; k < nlocal; ++k) {
+		   printf("%.4e\n", data_x[k]);
+	   }
+   }
+#endif
+
+    BVRestoreArray(bv_b,&data_b);
+    BVRestoreArray(bv_x,&data_x);
+
+   //ops->Printf("MUMPS_MultiLinearSolver\n");
+   return;
+}
+#endif
+
+
 
 void MatrixConvertPHG2PETSC(void **petsc_mat,  void **phg_mat);
 int  CreateMatrixPHG (void **matA, void **matB, void **dofU, void **mapM, void **gridG, int argc, char *argv[]);
@@ -225,7 +487,7 @@ int TestAppSLEPC(int argc, char *argv[])
 		if (flag != 0) {
 			AppCtxCreate(&user, (Mat)matA);
 			ops->multi_linear_solver_workspace = (void*)&user;
-			ops->MultiLinearSolver = KSP_MultiLinearSolver;
+			ops->MultiLinearSolver = MUMPS_MultiLinearSolver;
 		}
 #endif
 		TestEigenSolverGCG(matA,matB,flag,argc,argv,ops);
@@ -293,8 +555,8 @@ int TestEPS(void *A, void *B, int flag, int argc, char *argv[], struct OPS_ *ops
 	EPS eps; EPSType type; 
 	PetscInt nev, ncv, mpd, max_it, nconv, its;
 	PetscReal tol;
-	nev = 200; ncv = 2*nev; mpd = ncv;
-	tol = 1e-8; max_it = 2000;
+	nev = 100; ncv = 2*nev; mpd = ncv;
+	tol = 1e-7; max_it = 2000;
 	EPSCreate(PETSC_COMM_WORLD,&eps);
 	EPSSetOperators(eps,(Mat)A,(Mat)B);
 	if (B==NULL)
@@ -333,22 +595,18 @@ int TestEPS(void *A, void *B, int flag, int argc, char *argv[], struct OPS_ *ops
 
 	EPSSetFromOptions(eps);
 	EPSSetUp(eps);
-	//EPSView(eps,PETSC_VIEWER_STDOUT_WORLD);
+	EPSView(eps,PETSC_VIEWER_STDOUT_WORLD);
+	ST st; KSP ksp;
+	EPSGetST(eps,&st);
+	STGetKSP(st,&ksp);
+	KSPView(ksp,PETSC_VIEWER_STDOUT_WORLD);
 	double time_start, time_interval;
-#if OPS_USE_MPI
-	time_start = MPI_Wtime();
-#else
-	time_start = clock();
-#endif
-	EPSSolve(eps);
-#if OPS_USE_MPI
-	time_interval = MPI_Wtime() - time_start;
-	ops->Printf("Time is %.3f\n", time_interval);
-#else
-	time_interval = clock()-time_start;
-	ops->Printf("Time is %.3f\n", (double)(time_interval)/CLOCKS_PER_SEC);
-#endif
+	time_start = ops->GetWtime();
 
+	EPSSolve(eps);
+
+	time_interval = ops->GetWtime() - time_start;
+	ops->Printf("Time is %.3f\n", time_interval);
 
 	EPSGetType(eps,&type);
 	EPSGetConverged(eps,&nconv);

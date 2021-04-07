@@ -86,13 +86,7 @@ int TestEigenSolverGCG(void *A, void *B, int flag, int argc, char *argv[], struc
 
 	srand(0);
 	double time_start, time_interval;
-#if OPS_USE_MPI
-	time_start = MPI_Wtime();
-#elif OPS_USE_OMP
-	time_start = omp_get_wtime();
-#else
-	time_start = clock();
-#endif
+	time_start = ops->GetWtime();
 		
 	ops->Printf("===============================================\n");
 	ops->Printf("GCG Eigen Solver\n");
@@ -145,16 +139,8 @@ int TestEigenSolverGCG(void *A, void *B, int flag, int argc, char *argv[], struc
 			((GCGSolver*)ops->eigen_solver_workspace)->numIter, nevConv);
 	ops->Printf("++++++++++++++++++++++++++++++++++++++++++++++\n");
 
-#if OPS_USE_MPI
-	time_interval = MPI_Wtime() - time_start;
+	time_interval = ops->GetWtime() - time_start;
 	ops->Printf("Time is %.3f\n", time_interval);
-#elif OPS_USE_OMP
-	time_interval = omp_get_wtime() - time_start;
-	ops->Printf("Time is %.3f\n", time_interval);
-#else
-	time_interval = clock() - time_start;
-	ops->Printf("Time is %.3f\n", (double)(time_interval)/CLOCKS_PER_SEC);
-#endif
 
 	/* 下述部分将被全封存在 EigenSolverDestroyWorkspace_GCG */
 	ops->MultiVecDestroy(&gcg_mv_ws[0],nevMax+2*block_size,ops);
