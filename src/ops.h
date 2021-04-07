@@ -18,6 +18,12 @@
 #include <omp.h>
 #endif
 
+#if OPS_USE_INTEL_MKL
+#include <omp.h>
+#include <mkl.h>
+#include <mkl_spblas.h>
+#endif
+
 #if OPS_USE_MPI
 #include <mpi.h>
 
@@ -88,7 +94,7 @@ typedef struct OPS_ {
 	void (*MatTransDotMultiVec) (void *mat, void **x, void **y, 
 			int  *start, int *end, struct OPS_ *ops);
 	/* qAp = Qt A P */
-	void (*MultiVecQtAP)        (char ntsA, char nsdQAP, 
+	void (*MultiVecQtAP)        (char ntsA, char ntsdQAP, 
 			void **mvQ  , void   *matA  , void   **mvP, int is_vec, 
 			int  *start , int    *end   , double *qAp , int ldQAP , 
 			void **mv_ws, struct OPS_ *ops);
@@ -176,7 +182,7 @@ void DefaultMatDotMultiVec      (void *mat, void **x, void **y,
 	int  *start, int *end, struct OPS_ *ops);
 void DefaultMatTransDotMultiVec (void *mat, void **x, void **y, 
 	int  *start, int *end, struct OPS_ *ops);
-void DefaultMultiVecQtAP        (char ntsA, char nsdQAP, 
+void DefaultMultiVecQtAP        (char ntsA, char ntsdQAP, 
 	void **mvQ   , void   *matA  , void   **mvP, int is_vec, 
 	int  *startQP, int    *endQP , double *qAp , int ldQAP , 
 	void **mv_ws, struct OPS_ *ops);

@@ -581,7 +581,7 @@ static void PAS(void *A, void *B , double *eval, void **evec,
 	ss_matA.level_aux  = pas_solver->level_aux;
 	ss_matA.num_levels = pas_solver->num_levels;
 	
-	ss_matB.XX = NULL; ss_matB.QX = NULL; 
+	ss_matB.XX = NULL; ss_matB.QX = NULL; ss_matB.size_XX = sizeX;
 	ss_matB.QQ = pas_solver->B; 
 	ss_matB.P  = pas_solver->P;
 	ss_matB.level_aux  = pas_solver->level_aux;

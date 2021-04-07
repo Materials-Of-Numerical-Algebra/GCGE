@@ -45,12 +45,12 @@ void DefaultPrintf(const char *fmt, ...)
 double DefaultGetWtime(void)
 {
    double time;
-#if OPS_USE_MPI
+#if   OPS_USE_MPI
     time = MPI_Wtime();
-#elif OPS_USE_OMP
+#elif OPS_USE_OMP || OPS_USE_INTEL_MKL
     time = omp_get_wtime();
 #else
-    time = clock()/CLOCKS_PER_SEC;
+    time = (double)clock()/CLOCKS_PER_SEC;
 #endif
     return time;
 }
@@ -348,7 +348,7 @@ void DefaultMatTransDotMultiVec (void *mat, void **x, void **y,
 	}
 	return;
 }
-void DefaultMultiVecQtAP        (char ntsA, char nsdQAP, 
+void DefaultMultiVecQtAP        (char ntsA, char ntsdQAP, 
 	void **mvQ   , void   *matA , void   **mvP, int is_vec, 
 	int  *startQP, int    *endQP, double *qAp , int ldQAP , 
 	void **mv_ws , struct OPS_ *ops)
@@ -357,7 +357,14 @@ void DefaultMultiVecQtAP        (char ntsA, char nsdQAP,
 	nrows = endQP[0]-startQP[0]; ncols = endQP[1]-startQP[1];
 	if (nrows<=0||ncols<=0) return;
 	if (matA == NULL) {
-		ops->MultiVecInnerProd(nsdQAP,mvQ,mvP,is_vec,startQP,endQP,qAp,ldQAP,ops);
+		if (ntsdQAP=='T') {
+			start[0] = startQP[1]; end[0] = endQP[1];
+			start[1] = startQP[0]; end[1] = endQP[0];
+			ops->MultiVecInnerProd('N',mvP,mvQ,is_vec,start,end,qAp,ldQAP,ops);
+		}
+		else {
+			ops->MultiVecInnerProd(ntsdQAP,mvQ,mvP,is_vec,startQP,endQP,qAp,ldQAP,ops);
+		}
 		return;
 	}
 	start[0] = startQP[1]; end[0] = endQP[1];
@@ -383,9 +390,17 @@ void DefaultMultiVecQtAP        (char ntsA, char nsdQAP,
 	ops->Printf("A*P\n");
 	ops->MultiVecView(mv_ws,start[1],end[1],ops);
 #endif
-	start[0] = startQP[0]; end[0] = endQP[0]           ;
-	start[1] = 0         ; end[1] = endQP[1]-startQP[1];
-	ops->MultiVecInnerProd(nsdQAP,mvQ,mv_ws,is_vec,start,end,qAp,ldQAP,ops);
+
+	if (ntsdQAP=='T') {
+		start[0] = 0         ; end[0] = endQP[1]-startQP[1];
+		start[1] = startQP[0]; end[1] = endQP[0]           ;
+		ops->MultiVecInnerProd('N',mv_ws,mvQ,is_vec,start,end,qAp,ldQAP,ops);
+	}
+	else {
+		start[0] = startQP[0]; end[0] = endQP[0]           ;
+		start[1] = 0         ; end[1] = endQP[1]-startQP[1];
+		ops->MultiVecInnerProd(ntsdQAP,mvQ,mv_ws,is_vec,start,end,qAp,ldQAP,ops);
+	}
 #if DEBUG
 	ops->Printf("qAp = %e\n", *qAp);
 	ops->Printf("Q\n");
@@ -394,4 +409,3 @@ void DefaultMultiVecQtAP        (char ntsA, char nsdQAP,
 #endif
 	return;
 }
-

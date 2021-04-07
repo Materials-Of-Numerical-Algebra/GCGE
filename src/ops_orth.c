@@ -45,9 +45,6 @@ struct TimeBGS_ time_bgs = {0.0,0.0,0.0,0.0,0.0};
 static void OrthSelf(void **x,int start_x,int *end_x, void *B, int max_reorth,
 		double orth_zero_tol,double reorth_tol,void **mv_ws,double *dbl_ws,struct OPS_ *ops)
 {
-#if DEBUG
-	ops->Printf("start_x = %d, end_x = %d\n", start_x, *end_x);
-#endif
 	if (*end_x<=start_x) return;
 	
 	int    k, start[2], end[2], length, inc, idx, idx_abs_max; 
@@ -57,19 +54,13 @@ static void OrthSelf(void **x,int start_x,int *end_x, void *B, int max_reorth,
 		/* compute r_k */
 		start[0] = k; end[0] = *end_x;
 		start[1] = k; end[1] = k+1;
+		ops->MultiVecQtAP('S','N',x,B,x,0,start,end,
+				r_k,end[0]-start[0],mv_ws,ops);
 #if DEBUG
 		ops->Printf("k = %d, start = %d,%d, end = %d,%d\n", k,start[0],start[1],end[0],end[1]);
 		ops->Printf("r_k = %e\n", *r_k);
 #endif
-		ops->MultiVecQtAP('S','N',x,B,x,0,start,end,
-				r_k,end[0]-start[0],mv_ws,ops);
-#if DEBUG
-		ops->Printf("r_k = %e\n", *r_k);
-#endif
 		*r_k = sqrt(*r_k);
-#if DEBUG
-		ops->Printf("r[%d] = %f, %f\n",k,*r_k, orth_zero_tol);
-#endif
 		if (*r_k < orth_zero_tol) {
 			ops->Printf("r_[%d] = %6.4e\n",k,*r_k);
 			/* 保证 k 不指向 最后一个 向量, 若是最后一个, 直接舍去 */
@@ -116,7 +107,7 @@ static void OrthSelf(void **x,int start_x,int *end_x, void *B, int max_reorth,
 				idx_abs_max = idamax(&length,coef,&inc);
 				if (fabs(coef[idx_abs_max-1]) < reorth_tol) {
 #if DEBUG
-				   ops->Printf("OrthSelf The number of Reorth = %d\n", idx);
+				   ops->Printf("OrthSelf: The number of reorth = %d\n", idx);
 #endif
 				   break;
 				}
@@ -135,8 +126,6 @@ static void OrthSelfEVP(void **x,int start_x,int *end_x, void *B, int max_reorth
 #if DEBUG 
 	ops->Printf("start_x = %d, end_x = %d\n", start_x, *end_x);
 #endif
-	
-
 	int    k, start[2], end[2], idx, inc = 1, lin_dep; 
 	char   JOBZ = 'V', UPLO = 'L';
 	int    N, LDA, LWORK, INFO;
@@ -208,7 +197,6 @@ static void OrthSelfEVP(void **x,int start_x,int *end_x, void *B, int max_reorth
 			break;
 		}	
 	}
-
 	return;
 }
 
@@ -245,47 +233,34 @@ static void ModifiedGramSchmidt(void **x, int start_x, int *end_x,
 	/* 去掉 X1 中 X0 的部分 */
 	if (start_x > 0) {
 		for (idx = 0; idx < 1+mgs_orth->max_reorth; ++idx) {	
-#if DEBUG
-			ops->Printf("110 befor QtAP (%d, %d)\n", start[0], end[0]);
-#endif
 #if TIME_MGS
-    		time_mgs.qAp_time -= ops->GetWtime();
+			time_mgs.qAp_time -= ops->GetWtime();
 #endif
 			ops->MultiVecQtAP('S','N',x,B,x,0,start,end,
 					coef,end[0]-start[0],mv_ws,ops);
 #if TIME_MGS
-        	time_mgs.qAp_time += ops->GetWtime();
+			time_mgs.qAp_time += ops->GetWtime();
 #endif 
-
-#if DEBUG
-			ops->Printf("113 after QtAP (%d, %d)\n", start[1], end[1]);
-#endif
 
 			length = (end[1] - start[1])*(end[0] - start[0]);
 			*beta = -1.0; incx = 1;
 			dscal(&length,beta,coef,&incx);
 			*beta = 1.0;
 
-#if DEBUG
-			ops->Printf("121 befor LinearComb (%d, %d)\n", start[0], end[0]);
-#endif
 #if TIME_MGS
-    		time_mgs.line_comb_time -= ops->GetWtime();
+			time_mgs.line_comb_time -= ops->GetWtime();
 #endif
 			ops->MultiVecLinearComb(x,x,0,start,end,
 					coef,end[0]-start[0],beta,0,ops);
 #if TIME_MGS
-        	time_mgs.line_comb_time += ops->GetWtime();
+			time_mgs.line_comb_time += ops->GetWtime();
 #endif 
 
-#if DEBUG
-			ops->Printf("124 after LinearComb (%d, %d)\n", start[1], end[1]);
-#endif
 
 			idx_abs_max = idamax(&length,coef,&incx);
 			if (fabs(coef[idx_abs_max-1]) < reorth_tol) {
 #if DEBUG 
-			   ops->Printf("X1 - X0 The number of Reorth = %d\n", idx);
+			   ops->Printf("X1 - X0: The number of reorth = %d\n", idx);
 #endif
 			   break;
 			}
@@ -305,24 +280,15 @@ static void ModifiedGramSchmidt(void **x, int start_x, int *end_x,
 		ops->Printf("start block_size %d\n", block_size);
 #endif
 		start[1] = init_start; end[1] = start[1]+block_size;
-		//OrthSelf(x,start[1],&(end[1]),B,orth_zero_tol,mv_ws,coef,ops);
-
-#if DEBUG
-		ops->Printf("befor OrthSelf (%d, %d)\n", start[1], end[1]);
-#endif
-
 #if TIME_MGS
-        time_mgs.orth_self_time -= ops->GetWtime();
+		time_mgs.orth_self_time -= ops->GetWtime();
 #endif
 		OrthSelf(x,start[1],&(end[1]),B,
 		      mgs_orth->max_reorth,orth_zero_tol,reorth_tol,
 		      mv_ws,mgs_orth->dbl_ws,ops);	      
 #if TIME_MGS
-        time_mgs.orth_self_time += ops->GetWtime();
+		time_mgs.orth_self_time += ops->GetWtime();
 #endif 
-#if DEBUG
-		ops->Printf("after OrthSelf (%d, %d)\n", start[1], end[1]);
-#endif
 		init_end = end[1];
 		/* 将后面部分复制到线性相关部分 */
 		length = block_size - (end[1]-start[1]);								
@@ -330,85 +296,64 @@ static void ModifiedGramSchmidt(void **x, int start_x, int *end_x,
 		if (length > 0) {
 			end[0]   = *end_x; start[0] = end[0]-length;
 			start[1] = init_end; end[1] = start[1]+length;
-
-#if DEBUG
-			ops->Printf("befor Axpby (%d, %d)\n", start[0], end[0]);
-#endif
-
 #if TIME_MGS
-        	time_mgs.axpby_time -= ops->GetWtime();
+			time_mgs.axpby_time -= ops->GetWtime();
 #endif 
 			ops->MultiVecAxpby(1.0,x,0.0,x,start,end,ops);			
 #if TIME_MGS
-        	time_mgs.axpby_time += ops->GetWtime();
+			time_mgs.axpby_time += ops->GetWtime();
 #endif 
-
-#if DEBUG
-			ops->Printf("after Axpby (%d, %d)\n", start[1], end[1]);
-#endif
 		}
 		*end_x = *end_x - (block_size-(init_end-init_start));
 		/* 将 去掉后面部分 中的 前面正交化部分 */
 		if ( init_end < (*end_x) && init_start < init_end ) {	
 			for (idx = 0; idx < 1+mgs_orth->max_reorth; ++idx) {
-			        coef = beta+1;
-
-				start[0] = init_end  ; end[0] = *end_x  ;
-				start[1] = init_start; end[1] = init_end;		
-
-#if DEBUG
-				ops->Printf("befor QtAP (%d, %d)\n", start[0], end[0]);
-#endif
-
 #if TIME_MGS
-        		time_mgs.qAp_time -= ops->GetWtime();
+				time_mgs.qAp_time -= ops->GetWtime();
 #endif
-				ops->MultiVecQtAP('S','N',x,B,x,0,start,end,
-						coef,end[0]-start[0],mv_ws,ops);
-#if TIME_MGS
-        		time_mgs.qAp_time += ops->GetWtime();
-#endif
+				/* 重正交化时, 无需再算 Bx, 用 mv_ws 即可, 另外, QtAP 中 coef 设为 'T', 则不再需要转置 */
+				if (B!=NULL && idx > 0) {
+					start[0] = init_end  ; end[0] = *end_x;
+					start[1] = 0         ; end[1] = init_end - init_start;		
 #if DEBUG
-				ops->Printf("affer QtAP (%d, %d)\n", start[1], end[1]);
+					ops->Printf("start = %d,%d, end = %d,%d, idx = %d\n",start[0],start[1],end[0],end[1],idx);
 #endif
+					ops->MultiVecQtAP('S','T',x,NULL,mv_ws,0,start,end,
+							coef,end[1]-start[1],mv_ws,ops);
+				}
+				else {
+					start[0] = init_end  ; end[0] = *end_x  ;
+					start[1] = init_start; end[1] = init_end;		
+#if DEBUG
+					ops->Printf("start = %d,%d, end = %d,%d, idx = %d\n",start[0],start[1],end[0],end[1],idx);
+#endif
+					ops->MultiVecQtAP('S','T',x,B,x,0,start,end,
+							coef,end[1]-start[1],mv_ws,ops);
 
+				}
+#if TIME_MGS
+				time_mgs.qAp_time += ops->GetWtime();
+#endif
 				length = (end[1] - start[1])*(end[0] - start[0]); 
 				*beta  = -1.0; incx = 1;
 				dscal(&length,beta,coef,&incx);
-					
-				nrows  = end[0]-start[0] ; ncols = end[1]-start[1];
-				source = coef            ; incx  = nrows;   
-				destin = coef+nrows*ncols; incy  = 1;
-				for (row = 0; row < nrows; ++row) {
-					dcopy(&ncols,source,&incx,destin,&incy);
-					source += 1; destin += ncols;
-				}
-				coef = coef+nrows*ncols; *beta = 1.0;	
+				*beta  = 1.0;
+
 				start[0] = init_start; end[0] = init_end;
 				start[1] = init_end  ; end[1] = *end_x  ;
-
-#if DEBUG
-				ops->Printf("befor LinearComb (%d, %d)\n", start[0], end[0]);
-#endif
-
 #if TIME_MGS
-        		time_mgs.line_comb_time -= ops->GetWtime();
+				time_mgs.line_comb_time -= ops->GetWtime();
 #endif 
 				ops->MultiVecLinearComb(x,x,0,start,end,
 						coef,end[0]-start[0],beta,0,ops);
 #if TIME_MGS
-        		time_mgs.line_comb_time += ops->GetWtime();
+				time_mgs.line_comb_time += ops->GetWtime();
 #endif 
-
-#if DEBUG
-				ops->Printf("after LinearComb (%d, %d)\n", start[1], end[1]);
-#endif
-
 				incx = 1;
 				idx_abs_max = idamax(&length,coef,&incx);
 				if (fabs(coef[idx_abs_max-1]) < reorth_tol) {
 #if DEBUG
-				   ops->Printf("X1 - block_size The number of Reorth = %d\n", idx);
+				   ops->Printf("X1 - block_size: The number of reorth = %d\n", idx);
 #endif
 				   break;
 				}
@@ -416,7 +361,6 @@ static void ModifiedGramSchmidt(void **x, int start_x, int *end_x,
 		}
 		init_start = init_end;
 		block_size = (block_size<*end_x-init_start)?block_size:(*end_x-init_start);		
-
 #if DEBUG
 		ops->Printf("end block_size %d\n", block_size);
 #endif
@@ -456,7 +400,7 @@ void MultiVecOrthSetup_ModifiedGramSchmidt(
 #endif
 	static ModifiedGramSchmidtOrth mgs_orth_static = {
 		.block_size = -1  , .orth_zero_tol = 20*DBL_EPSILON,
-		.max_reorth = 4   , .reorth_tol    = 50*DBL_EPSILON,
+		.max_reorth = 3   , .reorth_tol    = 50*DBL_EPSILON,
 		.mv_ws      = NULL, .dbl_ws        = NULL};
 	mgs_orth_static.block_size    = block_size   ;
 	mgs_orth_static.orth_zero_tol = orth_zero_tol;
@@ -481,7 +425,7 @@ static void OrthBinary(void **x,int start_x, int *end_x, void *B, char orth_self
 	double *beta = dbl_ws, *coef = beta+1;
 	if (ncols<=block_size) {
 #if TIME_BGS
-        time_bgs.orth_self_time -= ops->GetWtime();
+		time_bgs.orth_self_time -= ops->GetWtime();
 #endif
 		if (orth_self_method=='E') {
 			OrthSelfEVP(x,start_x,end_x,B,
@@ -492,7 +436,7 @@ static void OrthBinary(void **x,int start_x, int *end_x, void *B, char orth_self
 					max_reorth,orth_zero_tol,reorth_tol,mv_ws,coef,ops);
 		}
 #if TIME_BGS
-        time_bgs.orth_self_time += ops->GetWtime();
+		time_bgs.orth_self_time += ops->GetWtime();
 #endif
 	}
 	else {
@@ -508,12 +452,23 @@ static void OrthBinary(void **x,int start_x, int *end_x, void *B, char orth_self
 		/* 去掉 X1 中 X0 的部分 */
 		for (idx = 0; idx < 1+max_reorth; ++idx) {
 #if TIME_BGS
-        	time_bgs.qAp_time -= ops->GetWtime();
+			time_bgs.qAp_time -= ops->GetWtime();
 #endif
-			ops->MultiVecQtAP('S','N',x,B,x,0,start,end,
-					coef,end[0]-start[0],mv_ws,ops);
+			int start_QtAP[2], end_QtAP[2];
+			if (B!=NULL && idx > 0) {
+				start_QtAP[0] = start[1]; end_QtAP[0] = end[1];
+				start_QtAP[1] = 0       ; end_QtAP[1] = end[0]-start[0];
+				ops->MultiVecQtAP('S','T',x,NULL,mv_ws,0,start_QtAP,end_QtAP,
+						coef,end_QtAP[1]-start_QtAP[1],mv_ws,ops);
+			}
+			else {
+				start_QtAP[0] = start[1]; end_QtAP[0] = end[1];
+				start_QtAP[1] = start[0]; end_QtAP[1] = end[0];
+				ops->MultiVecQtAP('S','T',x,B,x,0,start_QtAP,end_QtAP,
+						coef,end_QtAP[1]-start_QtAP[1],mv_ws,ops);
+			}
 #if TIME_BGS
-        	time_bgs.qAp_time += ops->GetWtime();
+			time_bgs.qAp_time += ops->GetWtime();
 #endif
 
 			length = (end[1] - start[1])*(end[0] - start[0]);
@@ -521,18 +476,18 @@ static void OrthBinary(void **x,int start_x, int *end_x, void *B, char orth_self
 			dscal(&length,beta,coef,&inc);		
 			*beta  = 1.0;
 #if TIME_BGS
-        	time_bgs.line_comb_time -= ops->GetWtime();
+			time_bgs.line_comb_time -= ops->GetWtime();
 #endif			
 			ops->MultiVecLinearComb(x,x,0,start,end,
 					coef,end[0]-start[0],beta,0,ops);
 #if TIME_BGS
-        	time_bgs.line_comb_time += ops->GetWtime();
+			time_bgs.line_comb_time += ops->GetWtime();
 #endif			
 
 			idx_abs_max = idamax(&length,coef,&inc);
 			if (fabs(coef[idx_abs_max-1]) < reorth_tol) {
 #if DEBUG 
-			   ops->Printf("X1 - X0 The number of Reorth = %d\n", idx);
+			   ops->Printf("X1 - X0: The number of reorth = %d\n", idx);
 #endif
 			   break;
 			}
@@ -551,11 +506,11 @@ static void OrthBinary(void **x,int start_x, int *end_x, void *B, char orth_self
 		start[0] = end[0]   - length;
 		end[1]   = start[1] + length;
 #if TIME_BGS
-        time_bgs.axpby_time -= ops->GetWtime();
+		time_bgs.axpby_time -= ops->GetWtime();
 #endif 
 		ops->MultiVecAxpby(1.0,x,0.0,x,start,end,ops);
 #if TIME_BGS
-        time_bgs.axpby_time += ops->GetWtime();
+		time_bgs.axpby_time += ops->GetWtime();
 #endif				
 	}
 	return;
@@ -588,30 +543,29 @@ static void BinaryGramSchmidt(void **x, int start_x, int *end_x,
 		coef     = beta+1; 
 		for (idx = 0; idx < 1+bgs_orth->max_reorth; ++idx) {
 #if TIME_BGS
-        	time_bgs.qAp_time -= ops->GetWtime();
+			time_bgs.qAp_time -= ops->GetWtime();
 #endif
 			ops->MultiVecQtAP('S','N',x,B,x,0,start,end,
 					coef,end[0]-start[0],mv_ws,ops);
 #if TIME_BGS
-        	time_bgs.qAp_time += ops->GetWtime();
+			time_bgs.qAp_time += ops->GetWtime();
 #endif
 			length = (end[1] - start[1])*(end[0] - start[0]); 
 			*beta  = -1.0; inc = 1;
 			dscal(&length,beta,coef,&inc);		
 			*beta  = 1.0;
 #if TIME_BGS
-        	time_bgs.line_comb_time -= ops->GetWtime();
+			time_bgs.line_comb_time -= ops->GetWtime();
 #endif
 			ops->MultiVecLinearComb(x,x,0,start,end,
 					coef,end[0]-start[0],beta,0,ops);
 #if TIME_BGS
-        	time_bgs.line_comb_time += ops->GetWtime();
+			time_bgs.line_comb_time += ops->GetWtime();
 #endif		
-
 			idx_abs_max = idamax(&length,coef,&inc);
 			if (fabs(coef[idx_abs_max-1]) < reorth_tol) {
 #if DEBUG
-			   ops->Printf("X1 - X0 The number of Reorth = %d\n", idx);
+			   ops->Printf("X1 - X0: The number of reorth = %d\n", idx);
 #endif
 			   break;
 			}
