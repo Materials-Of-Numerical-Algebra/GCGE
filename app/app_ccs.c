@@ -53,24 +53,83 @@ static void MatDotMultiVec (CCSMAT *mat, LAPACKVEC *x,
 	assert(end[0]-start[0]==end[1]-start[1]);
 	assert(y->nrows==y->ldd);
 	assert(x->nrows==x->ldd);
-	int length = end[0]-start[0]; int col; 
+	int num_vec = end[0]-start[0]; int col; 
 	if (mat!=NULL) {
-		memset(y->data+(y->ldd)*start[1],0,(y->ldd)*length*sizeof(double));
+#if OPS_USE_INTEL_MKL
+	sparse_matrix_t csrA;
+	struct matrix_descr descr;
+	descr.type = SPARSE_MATRIX_TYPE_GENERAL;
+	/*
+	 * sparse_status_t mkl_sparse_d_create_csr (
+	 *       sparse_matrix_t *A,  
+	 *       const sparse_index_base_t indexing,  
+	 *       const MKL_INT rows,  const MKL_INT cols,  
+	 *       MKL_INT *rows_start,  MKL_INT *rows_end,  MKL_INT *col_indx,  double *values);
+	 * sparse_status_t mkl_sparse_destroy (sparse_matrix_t A);
+	 * sparse_status_t mkl_sparse_d_mm (
+	 *       const sparse_operation_t operation,  
+	 *       const double alpha,  
+	 *       const sparse_matrix_t A,  const struct matrix_descr descr,  const sparse_layout_t layout,  
+	 *       const double *B,  const MKL_INT columns,  const MKL_INT ldb,  
+	 *       const double beta,  double *C,  const MKL_INT ldc);
+	 */
+
+	/* in process */
+	mkl_sparse_d_create_csr (
+			&csrA,
+			SPARSE_INDEX_BASE_ZERO,  
+			mat->ncols, mat->nrows,  
+			mat->j_col, mat->j_col+1, mat->i_row, mat->data);
 #if OPS_USE_OMP
-		#pragma omp parallel for schedule(static) num_threads(OMP_NUM_THREADS)
+	#pragma omp parallel num_threads(OMP_NUM_THREADS)
+	{
+		int id, length, offset;
+		id     = omp_get_thread_num();
+		length = num_vec/OMP_NUM_THREADS;
+		offset = length*id;
+		if (id < num_vec%OMP_NUM_THREADS) {
+			++length; offset += id;
+		}
+		else {
+			offset += num_vec%OMP_NUM_THREADS;
+		} 
+		/* 假设 mat 是对称矩阵, 否则 SPARSE_OPERATION_NON_TRANSPOSE 改为 SPARSE_OPERATION_TRANSPOSE */
+		mkl_sparse_d_mm (
+				SPARSE_OPERATION_NON_TRANSPOSE,
+				1.0,
+				csrA, descr, SPARSE_LAYOUT_COLUMN_MAJOR,  
+				     x->data+(start[0]+offset)*x->ldd, length, x->ldd,  
+				0.0, y->data+(start[1]+offset)*y->ldd, y->ldd);
+	}
+#else
+	/* 假设 mat 是对称矩阵, 否则 SPARSE_OPERATION_NON_TRANSPOSE 改为 SPARSE_OPERATION_TRANSPOSE */
+	mkl_sparse_d_mm (
+			SPARSE_OPERATION_NON_TRANSPOSE,
+			1.0,
+			csrA, descr, SPARSE_LAYOUT_COLUMN_MAJOR,
+			     x->data+start[0]*x->ldd, num_vec, x->ldd,  
+			0.0, y->data+start[1]*y->ldd, y->ldd);
 #endif
-		for (col = 0; col < length; ++col) {
-			int i, j;
-			double *dm, *dx, *dy; int *i_row;
-			dm = mat->data; i_row = mat->i_row;
-			dx = x->data+(x->ldd)*(start[0]+col);
-			dy = y->data+(y->ldd)*(start[1]+col);
-			for (j = 0; j < mat->ncols; ++j, ++dx) {
-				for (i = mat->j_col[j]; i < mat->j_col[j+1]; ++i) {
-					dy[*i_row++] += (*dm++)*(*dx);
-				}
+	mkl_sparse_destroy (csrA);
+
+#else
+	memset(y->data+(y->ldd)*start[1],0,(y->ldd)*num_vec*sizeof(double));
+#if OPS_USE_OMP
+	#pragma omp parallel for schedule(static) num_threads(OMP_NUM_THREADS)
+#endif
+	for (col = 0; col < num_vec; ++col) {
+		int i, j;
+		double *dm, *dx, *dy; int *i_row;
+		dm = mat->data; i_row = mat->i_row;
+		dx = x->data+(x->ldd)*(start[0]+col);
+		dy = y->data+(y->ldd)*(start[1]+col);
+		for (j = 0; j < mat->ncols; ++j, ++dx) {
+			for (i = mat->j_col[j]; i < mat->j_col[j+1]; ++i) {
+				dy[*i_row++] += (*dm++)*(*dx);
 			}
 		}
+	}
+#endif
 	}
 	else {
 		ops->lapack_ops->MultiVecAxpby (1.0, (void **)x, 0.0, (void **)y, 
@@ -85,6 +144,7 @@ static void MatTransDotMultiVec (CCSMAT *mat, LAPACKVEC *x,
 	assert(y->nrows==y->ldd);
 	assert(x->nrows==x->ldd);
 	assert(mat->nrows==mat->ncols);
+	/* Only for 对称矩阵 */
 	MatDotMultiVec (mat, x, y, start, end, ops);
 	return;
 }
