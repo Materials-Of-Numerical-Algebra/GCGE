@@ -470,7 +470,10 @@ static void ComputeW(void **V, void *A, void *B,
 	
 	double sigma = gcg_solver->compW_cg_shift;
 	if (gcg_solver->compW_cg_auto_shift==1) {
-		sigma = (ss_eval[sizeV-1]-sigma - 100*(ss_eval[0]-sigma))/99;
+		if (sizeC==0)
+			sigma = (ss_eval[sizeV-1]-sigma - 100*(ss_eval[sizeC]-sigma))/99;
+		else 
+			sigma += -ss_eval[sizeC-1];
 	}
 	gcg_solver->sigma = sigma;
 #if DEBUG
@@ -628,7 +631,10 @@ static void ComputeW12(void **V, void *A, void *B,
 
 	double sigma = gcg_solver->compW_cg_shift;
 	if (gcg_solver->compW_cg_auto_shift==1) {
-		sigma = (ss_eval[sizeV-1]-sigma - 100*(ss_eval[0]-sigma))/99;
+		if (sizeC==0)
+			sigma = (ss_eval[sizeV-1]-sigma - 100*(ss_eval[sizeC]-sigma))/99;
+		else 
+			sigma += -ss_eval[sizeC-1];
 	}
 	gcg_solver->sigma = sigma;
 #if DEBUG
@@ -825,7 +831,7 @@ static void ComputeRayleighRitz(double *ss_matA, double *ss_eval, double *ss_eve
     time_gcg.compRR_time -= ops_gcg->GetWtime();
 #endif	
 	int nrows, ncols, nrowsA, ncolsA, length, incx, incy, idx, start[2], end[2];
-	double *source, *destin;
+	double *source, *destin, alpha;
 #if DEBUG
 	ops_gcg->Printf("PtAP sizeP = %d\n", sizeP);
 #endif
@@ -934,6 +940,15 @@ static void ComputeRayleighRitz(double *ss_matA, double *ss_eval, double *ss_eve
 	destin = ss_diag; incy = 1              ;
 	dcopy(&length,source,&incx,destin,&incy);
 	
+	/* 对 ss_matA 进行 shift */
+	if (gcg_solver->sigma != 0.0) {
+		alpha = 1.0;
+		length = sizeV-sizeC;
+		source = &(gcg_solver->sigma); incx = 0;
+		destin = ss_matA             ; incy = (sizeV-sizeC)+1;
+		daxpy(&length,&alpha,source,&incx,destin,&incy);
+	}
+
 #if DEBUG	
 	int row, col;
 	ops_gcg->Printf("ss_diag:\n");
@@ -1017,6 +1032,7 @@ static void ComputeRayleighRitz(double *ss_matA, double *ss_eval, double *ss_eve
 #if TIME_GCG
     	time_gcg.dsyevx_time -= ops_gcg->GetWtime();
 #endif
+	//printf("%d\n",sendcount);
 	if (sendcount > 0) {
 #if DEBUG
 		ops_gcg->Printf("dsyevx: N   = %d, M  = %d, LDA = %d, IL = %d, IU  = %d, LDZ = %d\n", 
@@ -1030,6 +1046,7 @@ static void ComputeRayleighRitz(double *ss_matA, double *ss_eval, double *ss_eve
 	}
 #if TIME_GCG
     	time_gcg.dsyevx_time += ops_gcg->GetWtime();
+	//ops_gcg->Printf("dsyevx = %.2f\n",time_gcg.dsyevx_time);
 #endif
 	/* 将计算得到的特征值复制到 Z 的最后一行 */
 	length  = sendcount;
@@ -1102,6 +1119,15 @@ static void ComputeRayleighRitz(double *ss_matA, double *ss_eval, double *ss_eve
 	source = ss_diag; incx = 1              ;
 	destin = ss_matA; incy = (sizeV-sizeC)+1;
 	dcopy(&length,source,&incx,destin,&incy);
+
+	/* 回复特征值 W */
+	if (gcg_solver->sigma != 0.0) {
+		alpha  = -1.0;
+		length = sizeV-sizeC;
+		source = &(gcg_solver->sigma); incx = 0;
+		destin = ss_eval+sizeC       ; incy = 1;
+		daxpy(&length,&alpha,source,&incx,destin,&incy);
+	}
 	
 #if DEBUG
 	ops_gcg->Printf("dsyevx: ss_evec\n");
