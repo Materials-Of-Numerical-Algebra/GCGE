@@ -180,7 +180,7 @@ static void MatDotMultiVec (Mat mat, BV x,
 			MultiVecAxpby(1.0, x, 0.0, y, start, end, ops);
 		}
 		else {
-#if 0
+#if 1
 			int ncols = end[1]-start[1], col;
 			Vec vec_x, vec_y;      
 			for (col = 0; col < ncols; ++col) {
