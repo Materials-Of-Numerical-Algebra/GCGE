@@ -53,6 +53,10 @@ static int    *int_ws;
 static struct OPS_ *ops_gcg;
 static struct GCGSolver_ *gcg_solver;
 
+#if 0
+static double tmp_sigma[200];
+#endif
+
 /* y = ( A+sigma B ) x 
  * Only for CG (A+sigma*B)y = (lambda+sigma) B x 
  * use z[s:end] as workspace, which is b or p in CG */ 
@@ -66,7 +70,14 @@ static void MatDotMultiVecShift(void **x, void **y,
 	ops->MatDotMultiVec(A,x,y,start,end,ops);
 	if (sigma != 0.0) {
 		if (B==NULL) {
+#if 1
 			ops->MultiVecAxpby(sigma,x,1.0,y,start,end,ops);
+#else
+			int ncols = end[0]-start[0], col;
+			for (col = 0; col < ncols; ++col) {
+				ops->MultiVecAxpby(tmp_sigma[col+start[1]],x,1.0,y,start,end,ops);
+			}
+#endif
 		}		
 		else {
 			//void **z;
@@ -468,16 +479,16 @@ static void ComputeW(void **V, void *A, void *B,
 	int start[2], end[2], block_size, length, inc, idx;
 	double *destin = dbl_ws;
 	
-	double sigma = gcg_solver->compW_cg_shift;
+	double sigma;
 	if (gcg_solver->compW_cg_auto_shift==1) {
 		if (sizeC==0)
-			sigma = (ss_eval[sizeV-1]-sigma - 100*(ss_eval[sizeC]-sigma))/99;
+			sigma = (ss_eval[sizeV-1] - 100*(ss_eval[sizeC]))/99;
 		else 
-			sigma += -ss_eval[sizeC-1];
+			sigma = -ss_eval[sizeC-1];
 	}
-	gcg_solver->sigma = sigma;
+	gcg_solver->sigma = gcg_solver->compW_cg_shift+sigma; sigma = gcg_solver->sigma;
 #if DEBUG
-	ops_gcg->Printf("ss_eval[0] = %e, sigma = %e\n",ss_eval[0],gcg_solver->sigma);
+	ops_gcg->Printf("ss_eval[%d] = %e, sigma = %e\n",sizeC,ss_eval[sizeC],gcg_solver->sigma);
 #endif
 	/* 不支持 同时使用 外部求解器 和 shift */
 	assert(gcg_solver->compW_cg_auto_shift==0 || gcg_solver->user_defined_multi_linear_solver == 0);
@@ -500,6 +511,7 @@ static void ComputeW(void **V, void *A, void *B,
 		ops_gcg->MatDotMultiVec(B,V,b,start,end,ops_gcg);
 		
 		int i;
+#if 1
 		/* shift eigenvalues with sigma */
 		for (i = start[0]; i < end[0]; ++i) ss_eval[i] += sigma;
 		ops_gcg->MultiVecLinearComb(NULL,b,0,start,end,
@@ -507,7 +519,23 @@ static void ComputeW(void **V, void *A, void *B,
 		dcopy(&length,ss_eval+start[0],&inc,destin,&inc);
 		/* recover eigenvalues */
 		for (i = start[0]; i < end[0]; ++i) ss_eval[i] -= sigma;
-		
+#else
+		/* shift eigenvalues with sigma */
+		for (i = 0; i < length; ++i) {
+			if (start[0]+i > 0)
+				tmp_sigma[block_size+i] = ss_eval[start[0]+i] - ss_eval[start[0]+i-1];
+			else 
+				tmp_sigma[block_size+i] = ss_eval[start[0]+i] + sigma;
+		}
+		ops_gcg->MultiVecLinearComb(NULL,b,0,start,end,
+				NULL,0,tmp_sigma,1,ops_gcg);			
+		dcopy(&length,tmp_sigma,&inc,destin,&inc);
+		/* recover eigenvalues */
+		for (i = 0; i < length; ++i) {
+			tmp_sigma[block_size+i] -= ss_eval[start[0]+i];
+			ops_gcg->Printf("%d, %d: %f\n",block_size+i,start[0]+i,tmp_sigma[block_size+i]);
+		}
+#endif
 		destin += length;
 		block_size += length;
 #if DEBUG
@@ -629,16 +657,16 @@ static void ComputeW12(void **V, void *A, void *B,
 	int start[2], end[2], block_size, length, inc, idx;
 	double *destin = dbl_ws;
 
-	double sigma = gcg_solver->compW_cg_shift;
+	double sigma;
 	if (gcg_solver->compW_cg_auto_shift==1) {
 		if (sizeC==0)
-			sigma = (ss_eval[sizeV-1]-sigma - 100*(ss_eval[sizeC]-sigma))/99;
+			sigma = (ss_eval[sizeV-1] - 100*(ss_eval[sizeC]))/99;
 		else 
-			sigma += -ss_eval[sizeC-1];
+			sigma = -ss_eval[sizeC-1];
 	}
-	gcg_solver->sigma = sigma;
+	gcg_solver->sigma = gcg_solver->compW_cg_shift+sigma; sigma = gcg_solver->sigma;
 #if DEBUG
-	ops_gcg->Printf("ss_eval[0] = %e, sigma = %e\n",ss_eval[0],gcg_solver->sigma);
+	ops_gcg->Printf("ss_eval[0] = %e, sigma = %e\n",ss_eval[0],gcg_solver->compW_cg_shift);
 #endif
 
 	void(*lin_sol)(void*,void**,void**,int*,int*,struct OPS_*);
@@ -740,7 +768,7 @@ static void ComputeW12(void **V, void *A, void *B,
 	}
 #else
 /* 这种情况下, 在MatDotMultiVecShift中, 右端项会做为临时空间, 改变了值 */
-if (gcg_solver->B!=NULL && gcg_solver->sigma!=0.0) {
+if (gcg_solver->B!=NULL && gcg_solver->compW_cg_shift!=0.0) {
 	block_size = 0; inc = 1; 
 	for (idx = 0; idx < offset[0]; ++idx) {
 		length   = offset[idx*2+2]-offset[idx*2+1];
@@ -941,10 +969,10 @@ static void ComputeRayleighRitz(double *ss_matA, double *ss_eval, double *ss_eve
 	dcopy(&length,source,&incx,destin,&incy);
 	
 	/* 对 ss_matA 进行 shift */
-	if (gcg_solver->sigma != 0.0) {
+	if (gcg_solver->compW_cg_shift != 0.0) {
 		alpha = 1.0;
 		length = sizeV-sizeC;
-		source = &(gcg_solver->sigma); incx = 0;
+		source = &(gcg_solver->compW_cg_shift); incx = 0;
 		destin = ss_matA             ; incy = (sizeV-sizeC)+1;
 		daxpy(&length,&alpha,source,&incx,destin,&incy);
 	}
@@ -1121,10 +1149,10 @@ static void ComputeRayleighRitz(double *ss_matA, double *ss_eval, double *ss_eve
 	dcopy(&length,source,&incx,destin,&incy);
 
 	/* 回复特征值 W */
-	if (gcg_solver->sigma != 0.0) {
+	if (gcg_solver->compW_cg_shift != 0.0) {
 		alpha  = -1.0;
 		length = sizeV-sizeC;
-		source = &(gcg_solver->sigma); incx = 0;
+		source = &(gcg_solver->compW_cg_shift); incx = 0;
 		destin = ss_eval+sizeC       ; incy = 1;
 		daxpy(&length,&alpha,source,&incx,destin,&incy);
 	}
