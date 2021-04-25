@@ -142,7 +142,8 @@ int TestAppCCS(int argc, char *argv[])
 static int CreateMatrixCCS(CCSMAT *ccs_matA, CCSMAT *ccs_matB) 
 {
    //int n = 12, row, col; double h = 1.0/(n+1);
-   int n = 800+7, col; double h = 1.0/(n+1);
+   //int n = 800+7, col; double h = 1.0/(n+1);
+   int n = 30000+7, col; double h = 1.0/(n+1);
    ccs_matA->nrows = n; ccs_matA->ncols = n;
    ccs_matA->j_col = malloc((n+1)*sizeof(int));
    ccs_matA->i_row = malloc((3*n-2)*sizeof(int));

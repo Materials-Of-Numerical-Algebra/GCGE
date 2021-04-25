@@ -37,11 +37,11 @@ int main(int argc, char *argv[])
 } 
 #endif
 
-	TestAppLAPACK(argc, argv);
+	//TestAppLAPACK(argc, argv);
 	//TestAppCCS(argc, argv);
 	//TestAppHYPRE(argc, argv);
 	//TestAppPHG(argc, argv);
-	//TestAppSLEPC(argc, argv);
+	TestAppSLEPC(argc, argv);
     
 	/* create a PAS matrix to test */
 	//TestAppPAS_LAPACK(argc, argv);

@@ -40,8 +40,8 @@ int TestMultiGrid        (void *A, void *B, struct OPS_ *ops);
 /* test EPS in SLEPc */
 int TestEPS(void *A, void *B, int flag, int argc, char *argv[], struct OPS_ *ops);
 
-#define OPS_USE_PHG_MAT  1
-#define OPS_USE_FILE_MAT 0
+#define OPS_USE_PHG_MAT  0
+#define OPS_USE_FILE_MAT 1
 
 #if OPS_USE_SLEPC
 #include <slepceps.h>

@@ -98,7 +98,7 @@ int TestEigenSolverGCG(void *A, void *B, int flag, int argc, char *argv[], struc
 	int    check_conv_max_num    = 50   ;
 		
 	char   initX_orth_method[8]  = "mgs"; 
-	int    initX_orth_block_size = -1   ; 
+	int    initX_orth_block_size = 80   ; 
 	int    initX_orth_max_reorth = 2    ; double initX_orth_zero_tol    = 2*DBL_EPSILON;//1e-12
 	
 	char   compP_orth_method[8]  = "mgs"; 
@@ -106,13 +106,14 @@ int TestEigenSolverGCG(void *A, void *B, int flag, int argc, char *argv[], struc
 	int    compP_orth_max_reorth = 2    ; double compP_orth_zero_tol    = 2*DBL_EPSILON;//1e-12
 	
 	char   compW_orth_method[8]  = "mgs";
-	int    compW_orth_block_size = -1   ; 	
+	int    compW_orth_block_size = 80   ; 	
 	int    compW_orth_max_reorth = 2    ;  double compW_orth_zero_tol   = 2*DBL_EPSILON;//1e-12
 	int    compW_bpcg_max_iter   = 30   ;  double compW_bpcg_rate       = 1e-2; 
 	double compW_bpcg_tol        = 1e-12;  char   compW_bpcg_tol_type[8] = "abs";
 	
 	int    compRR_min_num        = -1   ;  double compRR_min_gap        = gapMin;
 	double compRR_tol            = 2*DBL_EPSILON;
+	//double compRR_tol            = 0.0  ; 
 			
 	/* 设定 GCG 的算法参数 */
 	EigenSolverSetParameters_GCG(
@@ -155,6 +156,8 @@ int TestEigenSolverGCG(void *A, void *B, int flag, int argc, char *argv[], struc
 	int idx;
 	for (idx = 0; idx < nevConv; ++idx) {
 		ops->Printf("%d: %6.14e\n",idx+1,eval[idx]);
+		//if (idx > 0)
+		//	ops->Printf("%d: %6.14e\n",idx+1,(eval[idx]-eval[idx-1])/(eval[idx]+1));
 	}
 	ops->Printf("eigenvectors\n");
 	//ops->MultiVecView(evec,0,nevConv,ops);
