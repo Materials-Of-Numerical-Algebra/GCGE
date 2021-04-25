@@ -99,19 +99,19 @@ static void phgMatDotMultiVecLocal (MAT *A, VEC *x, VEC *y)
 	struct matrix_descr descr;
 	descr.type = SPARSE_MATRIX_TYPE_GENERAL;
 	/*
-		 * sparse_status_t mkl_sparse_d_create_csr (
-		 *       sparse_matrix_t *A,  
-		 *       const sparse_index_base_t indexing,  
-		 *       const MKL_INT rows,  const MKL_INT cols,  
-		 *       MKL_INT *rows_start,  MKL_INT *rows_end,  MKL_INT *col_indx,  double *values);
-		 * sparse_status_t mkl_sparse_destroy (sparse_matrix_t A);
-		 * sparse_status_t mkl_sparse_d_mm (
-		 *       const sparse_operation_t operation,  
-		 *       const double alpha,  
-		 *       const sparse_matrix_t A,  const struct matrix_descr descr,  const sparse_layout_t layout,  
-		 *       const double *B,  const MKL_INT columns,  const MKL_INT ldb,  
-		 *       const double beta,  double *C,  const MKL_INT ldc);
-		 */
+	 * sparse_status_t mkl_sparse_d_create_csr (
+	 *       sparse_matrix_t *A,  
+	 *       const sparse_index_base_t indexing,  
+	 *       const MKL_INT rows,  const MKL_INT cols,  
+	 *       MKL_INT *rows_start,  MKL_INT *rows_end,  MKL_INT *col_indx,  double *values);
+	 * sparse_status_t mkl_sparse_destroy (sparse_matrix_t A);
+	 * sparse_status_t mkl_sparse_d_mm (
+	 *       const sparse_operation_t operation,  
+	 *       const double alpha,  
+	 *       const sparse_matrix_t A,  const struct matrix_descr descr,  const sparse_layout_t layout,  
+	 *       const double *B,  const MKL_INT columns,  const MKL_INT ldb,  
+	 *       const double beta,  double *C,  const MKL_INT ldc);
+	 */
 
 	/* in process */
 	mkl_sparse_d_create_csr (

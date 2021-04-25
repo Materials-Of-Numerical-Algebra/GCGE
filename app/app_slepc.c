@@ -180,23 +180,24 @@ static void MatDotMultiVec (Mat mat, BV x,
 			MultiVecAxpby(1.0, x, 0.0, y, start, end, ops);
 		}
 		else {
-#if 1
-			int ncols = end[1]-start[1], col;
-			Vec vec_x, vec_y;      
-			for (col = 0; col < ncols; ++col) {
-				BVGetColumn(x, start[0]+col, &vec_x);
-				BVGetColumn(y, start[1]+col, &vec_y);
-				MatMult(mat, vec_x, vec_y); 
-				BVRestoreColumn(x, start[0]+col, &vec_x);
-				BVRestoreColumn(y, start[1]+col, &vec_y);
-			}
-#else
 			/* sometimes Active does not work */
 			assert(x!=y);
-			BVSetActiveColumns(x,start[0],end[0]);
-			BVSetActiveColumns(y,start[1],end[1]);
-			BVMatMult(x,mat,y);
-#endif
+			if (end[0]-start[0] < 5) {
+				int ncols = end[1]-start[1], col;
+				Vec vec_x, vec_y;      
+				for (col = 0; col < ncols; ++col) {
+					BVGetColumn(x, start[0]+col, &vec_x);
+					BVGetColumn(y, start[1]+col, &vec_y);
+					MatMult(mat, vec_x, vec_y); 
+					BVRestoreColumn(x, start[0]+col, &vec_x);
+					BVRestoreColumn(y, start[1]+col, &vec_y);
+				}
+			}
+			else {
+				BVSetActiveColumns(x,start[0],end[0]);
+				BVSetActiveColumns(y,start[1],end[1]);
+				BVMatMult(x,mat,y);
+			}
 		}
 	}
 	else {
