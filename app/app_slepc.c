@@ -290,6 +290,31 @@ static void SLEPC_MatView (void *mat, struct OPS_ *ops)
 	MatView((Mat)mat,PETSC_VIEWER_STDOUT_WORLD);
 	return;
 }
+static void SLEPC_MatAxpby (double alpha, void *matX, 
+		double beta, void *matY, struct OPS_ *ops)
+{
+	/* y = alpha x + beta y */
+	if (beta == 1.0) {
+		/* SAME_NONZERO_PATTERN, DIFFERENT_NONZERO_PATTERN or SUBSET_NONZERO_PATTERN */
+		/* y = alpha x + y */
+		MatAXPY((Mat)matY,alpha,(Mat)matX,SUBSET_NONZERO_PATTERN);
+	}
+	else if (alpha == 1.0) {
+		/* y = x + beta y */
+		MatAYPX((Mat)matY,beta,(Mat)matX,SUBSET_NONZERO_PATTERN);
+	}
+	else {
+		if (beta == 0.0) {
+			MatCopy((Mat)matX,(Mat)matY,DIFFERENT_NONZERO_PATTERN);
+			MatScale((Mat)matY,alpha);
+		}
+		else {
+			MatAXPY((Mat)matY,(alpha-1.0)/beta,(Mat)matX,SUBSET_NONZERO_PATTERN);
+			MatAYPX((Mat)matY,beta,(Mat)matX,SUBSET_NONZERO_PATTERN);
+		}
+	}
+	return;
+}
 /* multi-vec */
 static void SLEPC_MultiVecCreateByMat (void ***des_vec, int num_vec, void *src_mat, struct OPS_ *ops)
 {
@@ -584,8 +609,10 @@ static int SLEPC_GetOptionFromCommandLine (
 
 void OPS_SLEPC_Set (struct OPS_ *ops)
 {
-	ops->MatView                = SLEPC_MatView;
 	ops->GetOptionFromCommandLine = SLEPC_GetOptionFromCommandLine;
+	/* mat */
+	ops->MatAxpby               = SLEPC_MatAxpby;
+	ops->MatView                = SLEPC_MatView;
 	/* multi-vec */
 	ops->MultiVecCreateByMat    = SLEPC_MultiVecCreateByMat   ;
 	ops->MultiVecDestroy        = SLEPC_MultiVecDestroy       ;

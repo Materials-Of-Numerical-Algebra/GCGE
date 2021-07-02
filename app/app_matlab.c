@@ -136,7 +136,8 @@ void mexFunction(int nlhs,mxArray *plhs[],int nrhs,const mxArray *prhs[])
 			numIterMax, gapMin);
 
 	void **mv_ws[4]; double *dbl_ws = NULL; int *int_ws = NULL;
-	
+
+
 	EigenSolverCreateWorkspace_GCG(nevInit,nevMax,block_size,(void *)(&A),
 			mv_ws,&dbl_ws,&int_ws,ccs_ops);
 	/* GCG设定 */
@@ -146,6 +147,8 @@ void mexFunction(int nlhs,mxArray *plhs[],int nrhs,const mxArray *prhs[])
 	plhs[0] = mxCreateDoubleMatrix(n, 1, mxREAL);
 	plhs[1] = mxCreateDoubleMatrix(m, n, mxREAL);
 	plhs[2] = mxCreateDoubleMatrix(1, 1, mxREAL);
+
+	
 	//double *eval = mxGetDoubles(plhs[0]);
 	double *eval = mxGetPr(plhs[0]);
 	LAPACKVEC evec;
@@ -156,22 +159,22 @@ void mexFunction(int nlhs,mxArray *plhs[],int nrhs,const mxArray *prhs[])
 
 #if 1
 	/* GCG 参数设定 */
-	int    check_conv_max_num    = 600;
+	int    check_conv_max_num    = 50;
 	char   initX_orth_method[8]  = "mgs"; 
 	int    initX_orth_block_size = -1  ; 
-	int    initX_orth_max_reorth = 3   ; double initX_orth_zero_tol   = DBL_EPSILON;
+	int    initX_orth_max_reorth = 2   ; double initX_orth_zero_tol   = 2*DBL_EPSILON;
 	char   compP_orth_method[8]  = "mgs"; 
 	int    compP_orth_block_size = -1  ; 
-	int    compP_orth_max_reorth = 3   ; double compP_orth_zero_tol   = DBL_EPSILON;
+	int    compP_orth_max_reorth = 2   ; double compP_orth_zero_tol   = 2*DBL_EPSILON;
 	char   compW_orth_method[8]  = "mgs";
 	int    compW_orth_block_size = -1  ; 	
-	int    compW_orth_max_reorth = 3   ; double compW_orth_zero_tol   = DBL_EPSILON;
-	int    compW_bpcg_max_iter   = 10  ; double compW_bpcg_rate       = 1e-6; 
-	double compW_bpcg_tol        = 1e-26;char   compW_bpcg_tol_type[8]= "abs";
+	int    compW_orth_max_reorth = 2   ; double compW_orth_zero_tol   = 2*DBL_EPSILON;
+	int    compW_bpcg_max_iter   = 30  ; double compW_bpcg_rate       = 1e-2; 
+	double compW_bpcg_tol        = 1e-12;char   compW_bpcg_tol_type[8]= "abs";
 	int    compRR_min_num        = -1  ; double compRR_min_gap        = gapMin; 
-	double compRR_tol            = DBL_EPSILON;
+	double compRR_tol            = 2*DBL_EPSILON;
 #else
-	int    check_conv_max_num    = 800;
+	int    check_conv_max_num    = 20;
 	char   initX_orth_method[8]   = "mgs"; 
 	int    initX_orth_block_size = -1  ; 
 	int    initX_orth_max_reorth = 2   ; double initX_orth_zero_tol   = 1e-14;
@@ -197,13 +200,14 @@ void mexFunction(int nlhs,mxArray *plhs[],int nrhs,const mxArray *prhs[])
 			compW_orth_method    , compW_orth_block_size, 
 			compW_orth_max_reorth, compW_orth_zero_tol,
 			compW_bpcg_max_iter  , compW_bpcg_rate, 
-			compW_bpcg_tol       , compW_bpcg_tol_type,
+			compW_bpcg_tol       , compW_bpcg_tol_type, 0,
 			compRR_min_num       , compRR_min_gap,
 			compRR_tol           ,  
 			ccs_ops);		
-	
+#if 1	
 	/* GCG求解 */
 	ccs_ops->EigenSolver((void *)(&A),(void *)B,eval,(void **)(&evec),0,&nevConv,ccs_ops);
+#endif	
 	printf("numIter = %d, nevConv = %d\n", 
 			((GCGSolver*)ccs_ops->eigen_solver_workspace)->numIter, nevConv);
 	double nev = nevConv;
@@ -212,8 +216,7 @@ void mexFunction(int nlhs,mxArray *plhs[],int nrhs,const mxArray *prhs[])
 	/* GCG 销毁 */
 	EigenSolverDestroyWorkspace_GCG(nevInit,nevMax,block_size,(void *)(&A),
 			mv_ws,&dbl_ws,&int_ws,ccs_ops);
-#if 0
-#endif	
+
 	OPS_Destroy (&ccs_ops);
 	return;
 }
