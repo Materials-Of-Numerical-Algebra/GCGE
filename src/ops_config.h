@@ -14,16 +14,16 @@
 
 /* 当OPS_USE_SLEPC或PHG或HYPRE为1时, 需要让OPS_USE_MPI为1 */
 /* TODO 当 OPS_INTEL_MKL 为 1 时, CCS 接口需要加速 矩阵乘以向量 */
-#define  OPS_USE_HYPRE     1
-#define  OPS_USE_INTEL_MKL 1
+#define  OPS_USE_HYPRE     0
+#define  OPS_USE_INTEL_MKL 0
 #define  OPS_USE_MATLAB    0
 #define  OPS_USE_MEMWATCH  0
-#define  OPS_USE_MPI       1
-#define  OPS_USE_MUMPS     1
+#define  OPS_USE_MPI       0
+#define  OPS_USE_MUMPS     0
 #define  OPS_USE_OMP       0
 #define  OPS_USE_PHG       0
-#define  OPS_USE_PETSC     1
-#define  OPS_USE_SLEPC     1
+#define  OPS_USE_PETSC     0
+#define  OPS_USE_SLEPC     0
 #define  OPS_USE_UMFPACK   0
 /* 表示只打印0进程的输出信息 */
 #define  PRINT_RANK    0

@@ -479,12 +479,15 @@ static void ComputeW(void **V, void *A, void *B,
 	int start[2], end[2], block_size, length, inc, idx;
 	double *destin = dbl_ws;
 	
-	double sigma;
+	double sigma = 0.0;
 	if (gcg_solver->compW_cg_auto_shift==1) {
-		if (sizeC==0)
-			sigma = (ss_eval[sizeV-1] - 100*(ss_eval[sizeC]))/99;
+		sigma = -ss_eval[sizeC]+((ss_eval[sizeC+1]-ss_eval[sizeC])*0.01);
+#if 0
+		if (sizeC<3)
+			sigma = -ss_eval[sizeC]+(3*(ss_eval[1]-ss_eval[0])<0.1?3*(ss_eval[1]-ss_eval[0]):0.1);
 		else 
-			sigma = -ss_eval[sizeC-1];
+			sigma = -ss_eval[sizeC]+((ss_eval[sizeC+1]-ss_eval[sizeC])<0.1?(ss_eval[sizeC+1]-ss_eval[sizeC]):0.1);
+#endif
 	}
 	gcg_solver->sigma = gcg_solver->compW_cg_shift+sigma; sigma = gcg_solver->sigma;
 #if DEBUG
@@ -500,6 +503,13 @@ static void ComputeW(void **V, void *A, void *B,
 		start[0] = offset[idx*2+1]  ; end[0] = offset[idx*2+2];
 		start[1] = startW+block_size; end[1] = start[1]+length;
 		ops_gcg->MultiVecAxpby(1.0,ritz_vec,0.0,V,start,end,ops_gcg);
+#if 0
+		/* 20210530 Ax = lambda Bx - theta Ax */
+		int tmp_start[2], tmp_end[2]; double tmp_theta = 0.0;
+		ops_gcg->MultiVecAxpby(0.0,NULL,1-tmp_theta,V,start,end,ops_gcg);
+		/* 20210530 Ax = lambda Bx - theta Ax */
+#endif
+
 #if DEBUG
 		ops_gcg->Printf("initial W:\n");		
 		ops_gcg->MultiVecView(V,start[1],end[1],ops_gcg);	
@@ -509,6 +519,13 @@ static void ComputeW(void **V, void *A, void *B,
 		start[1] = offset[1]+block_size; end[1] = start[1]+length;
 		//ops_gcg->Printf("start = %d,%d, end = %d,%d\n",start[0],start[1],end[0],end[1]);
 		ops_gcg->MatDotMultiVec(B,V,b,start,end,ops_gcg);
+#if 0
+		/* 20210530 Ax = lambda Bx - theta Ax */
+		tmp_start[0] = start[0]; tmp_end[0] = end[0];
+		tmp_start[1] = 0       ; tmp_end[1] = end[0]-start[0];
+		ops_gcg->MatDotMultiVec(A,V,mv_ws[0],tmp_start,tmp_end,ops_gcg);
+		/* 20210530 Ax = lambda Bx - theta Ax */
+#endif
 		
 		int i;
 #if 1
@@ -519,6 +536,14 @@ static void ComputeW(void **V, void *A, void *B,
 		dcopy(&length,ss_eval+start[0],&inc,destin,&inc);
 		/* recover eigenvalues */
 		for (i = start[0]; i < end[0]; ++i) ss_eval[i] -= sigma;
+
+#if 0
+		/* 20210530 Ax = lambda Bx - theta Ax */
+		tmp_start[0] = 0       ; tmp_end[0] = end[0]-start[0];
+		tmp_start[1] = start[1]; tmp_end[1] = end[1];
+		ops_gcg->MultiVecAxpby(-tmp_theta,mv_ws[0],1.0,b,tmp_start,tmp_end,ops_gcg);
+		/* 20210530 Ax = lambda Bx - theta Ax */
+#endif
 #else
 		/* shift eigenvalues with sigma */
 		for (i = 0; i < length; ++i) {
@@ -564,17 +589,40 @@ static void ComputeW(void **V, void *A, void *B,
 #endif
 	if (gcg_solver->user_defined_multi_linear_solver==0||
 	    	gcg_solver->user_defined_multi_linear_solver==2) {	        
-		MultiLinearSolverSetup_BlockPCG(
-			gcg_solver->compW_cg_max_iter,
-			gcg_solver->compW_cg_rate,
-			gcg_solver->compW_cg_tol,
-			gcg_solver->compW_cg_tol_type,
-			mv_ws,dbl_ws,int_ws,NULL,MatDotMultiVecShift,ops_gcg);
+#if 1
+		/* 20210628 A = sigma B + A */
+		if (sigma!=0.0 && B!=NULL && ops_gcg->MatAxpby!=NULL) {
+			ops_gcg->MatAxpby(sigma,B,1.0,A,ops_gcg);
+			MultiLinearSolverSetup_BlockPCG(
+					gcg_solver->compW_cg_max_iter,
+					gcg_solver->compW_cg_rate,
+					gcg_solver->compW_cg_tol,
+					gcg_solver->compW_cg_tol_type,
+					mv_ws,dbl_ws,int_ws,NULL,NULL,ops_gcg);
+		}
+		else {
+#endif
+			MultiLinearSolverSetup_BlockPCG(
+					gcg_solver->compW_cg_max_iter,
+					gcg_solver->compW_cg_rate,
+					gcg_solver->compW_cg_tol,
+					gcg_solver->compW_cg_tol_type,
+					mv_ws,dbl_ws,int_ws,NULL,MatDotMultiVecShift,ops_gcg);
+#if 1
+		}
+#endif
 	}
 #if TIME_GCG
     	time_gcg.linsol_time -= ops_gcg->GetWtime();
 #endif
 	ops_gcg->MultiLinearSolver(A,b,V,start,end,ops_gcg);
+#if 1
+	/* 20210628 recover A */
+	if (sigma!=0.0 && B!=NULL && ops_gcg->MatAxpby!=NULL) {
+		/* A = -sigma B + A */
+		ops_gcg->MatAxpby(-sigma,B,1.0,A,ops_gcg);
+	}
+#endif
 #if 0
 	ops_gcg->Printf("=====b===========\n");
 	ops_gcg->MultiVecView(b,start[0],end[0],ops_gcg);
@@ -657,12 +705,15 @@ static void ComputeW12(void **V, void *A, void *B,
 	int start[2], end[2], block_size, length, inc, idx;
 	double *destin = dbl_ws;
 
-	double sigma;
+	double sigma = 0.0;
 	if (gcg_solver->compW_cg_auto_shift==1) {
-		if (sizeC==0)
-			sigma = (ss_eval[sizeV-1] - 100*(ss_eval[sizeC]))/99;
+		sigma = -ss_eval[sizeC]+((ss_eval[sizeC+1]-ss_eval[sizeC])*0.01);
+#if 0
+		if (sizeC<3)
+			sigma = -ss_eval[sizeC]+(3*(ss_eval[1]-ss_eval[0])>1?3*(ss_eval[1]-ss_eval[0]):1);
 		else 
-			sigma = -ss_eval[sizeC-1];
+			sigma = -ss_eval[sizeC]+((ss_eval[sizeC]-ss_eval[sizeC-3])>1?(ss_eval[sizeC]-ss_eval[sizeC-3]):1);
+#endif
 	}
 	gcg_solver->sigma = gcg_solver->compW_cg_shift+sigma; sigma = gcg_solver->sigma;
 #if DEBUG
@@ -673,12 +724,25 @@ static void ComputeW12(void **V, void *A, void *B,
 	void *ws;
 	lin_sol = ops_gcg->MultiLinearSolver;
 	ws      = ops_gcg->multi_linear_solver_workspace;
-	MultiLinearSolverSetup_BlockPCG(
-			gcg_solver->compW_cg_max_iter,
-			gcg_solver->compW_cg_rate,
-			gcg_solver->compW_cg_tol,
-			gcg_solver->compW_cg_tol_type,
-			mv_ws,dbl_ws,int_ws,NULL,MatDotMultiVecShift,ops_gcg);
+
+	/* 20210628 A = sigma B + A */
+	if (sigma!=0.0 && B!=NULL && ops_gcg->MatAxpby!=NULL) {
+		ops_gcg->MatAxpby(sigma,B,1.0,A,ops_gcg);
+		MultiLinearSolverSetup_BlockPCG(
+				gcg_solver->compW_cg_max_iter,
+				gcg_solver->compW_cg_rate,
+				gcg_solver->compW_cg_tol,
+				gcg_solver->compW_cg_tol_type,
+				mv_ws,dbl_ws,int_ws,NULL,NULL,ops_gcg);
+	}
+	else {
+		MultiLinearSolverSetup_BlockPCG(
+				gcg_solver->compW_cg_max_iter,
+				gcg_solver->compW_cg_rate,
+				gcg_solver->compW_cg_tol,
+				gcg_solver->compW_cg_tol_type,
+				mv_ws,dbl_ws,int_ws,NULL,MatDotMultiVecShift,ops_gcg);
+	}
 
 	/* initialize */
 	int total_length = 0;
@@ -768,7 +832,7 @@ static void ComputeW12(void **V, void *A, void *B,
 	}
 #else
 /* 这种情况下, 在MatDotMultiVecShift中, 右端项会做为临时空间, 改变了值 */
-if (gcg_solver->B!=NULL && gcg_solver->compW_cg_shift!=0.0) {
+if (sigma!=0.0 && B!=NULL && ops_gcg->MatAxpby==NULL) {
 	block_size = 0; inc = 1; 
 	for (idx = 0; idx < offset[0]; ++idx) {
 		length   = offset[idx*2+2]-offset[idx*2+1];
@@ -817,6 +881,12 @@ if (gcg_solver->B!=NULL && gcg_solver->compW_cg_shift!=0.0) {
 
 	ops_gcg->MultiLinearSolver             = lin_sol;
 	ops_gcg->multi_linear_solver_workspace = ws;
+
+	/* 20210628 recover A */
+	if (sigma!=0.0 && B!=NULL && ops_gcg->MatAxpby!=NULL) {
+		/* A = -sigma B + A */
+		ops_gcg->MatAxpby(-sigma,B,1.0,A,ops_gcg);
+	}
 
 #if DEBUG
 	ops_gcg->Printf("V\n")
@@ -1206,6 +1276,7 @@ static void GCG(void *A, void *B, double *eval, void **evec,
 	assert(nevInit <= nevMax);
 	assert(nevInit >= 3*block_size || nevInit==nevMax);
 	assert(nevMax  >= *nevConv+block_size);
+	assert(nevMax  <= *nevConv+nevInit);
 	assert(multiMax<= block_size);
 	/* 初始给出的 sizeX == nevInit 比最终要计算的 sizeX = nevMax 要小
 	 * 这样的好处是, dsyevx_ 的规模较小, 但 gcg 整体迭代次数变大, 

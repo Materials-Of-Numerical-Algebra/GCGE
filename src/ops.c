@@ -29,6 +29,8 @@ void OPS_Create  (OPS **ops)
 	(*ops)->Printf                   = NULL;
 	(*ops)->GetWtime                 = NULL;
 	(*ops)->GetOptionFromCommandLine = NULL; 
+	/* mat */
+	(*ops)->MatAxpby                 = NULL;
 	(*ops)->MatView                  = NULL;
 	/* vec */
 	(*ops)->VecCreateByMat           = NULL;
@@ -214,7 +216,7 @@ int SplitDoubleArray(double *destin, int length,
 	printf("dist[%d] = %f\n",0,dist[0]);
 #endif
 	for (k = 1; k < length; ++k) {
-		dist[k] = fabs((destin[k] - destin[k-1])/(fabs(destin[k])+1));
+		dist[k] = fabs((destin[k] - destin[k-1])/(fabs(destin[k])==0.0?0.01:fabs(destin[k])));
 #if DEBUG
 		printf("dist[%d] = %f\n",k,dist[k]);
 #endif

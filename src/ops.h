@@ -46,7 +46,10 @@ typedef struct OPS_ {
 	int    (*GetOptionFromCommandLine) (
 			const char *name, char type, void *data,
 			int argc, char* argv[], struct OPS_ *ops);	  
+	/* mat */
 	void (*MatView) (void *mat, struct OPS_ *ops);  
+	/* y = alpha x + beta y */
+	void (*MatAxpby) (double alpha, void *matX, double beta, void *matY, struct OPS_ *ops);
 	/* vec */
 	void (*VecCreateByMat) (void **des_vec, void *src_mat, struct OPS_ *ops);
 	void (*VecCreateByVec) (void **des_vec, void *src_vec, struct OPS_ *ops);
