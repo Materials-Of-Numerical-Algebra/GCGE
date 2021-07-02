@@ -15,21 +15,22 @@ mex('-v','-R2017b','-Dint="long long int"',ipath1,ipath2,...
 %%
 clear
 format long
-if 1
-    n=200; h = 1/(n+1);
+if 0
+    n=20000; h = 1/(n+1);
     A=sparse([1:(n-1),1:n,2:n],[2:n,1:n,1:(n-1)],[-1*ones(1,n-1),2*ones(1,n),-1*ones(1,n-1)],n,n);
     A=A/h;%full(A)
     B=sparse([1:n],[1:n],[1*ones(1,n)],n,n);
     B=B*h;%full(B)
 else
-    n=300;
+    n=2000;
     A=rand(n);
     A=A'*A;
     A=sparse(A); B=[];
 end
-nev=10; abs_tol=1e-2; rel_tol=1e-8;
-nevMax=2*nev; blockSize=10; nevInit=nevMax;
-numIterMax=100; gapMin=1e-2;
+%%
+nev=50; abs_tol=1e-8; rel_tol=1e0;
+nevMax=2*nev; blockSize=50; nevInit=nevMax;
+numIterMax=500; gapMin=1e-2;
 tic;
 [eval,evec,nev] = ...
 app_matlab(A,B,...
@@ -37,5 +38,5 @@ app_matlab(A,B,...
     nevMax,blockSize,nevInit,...
     numIterMax,gapMin);
 toc
-tic;meval=eigs(A,B,nev,'smallestabs');toc
+tic;meval=eigs(A,B,nev,'smallestabs','Tolerance',1e-8);toc
 diff = norm(eval(1:nev)-meval(1:nev))

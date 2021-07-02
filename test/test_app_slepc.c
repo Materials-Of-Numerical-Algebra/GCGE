@@ -40,8 +40,8 @@ int TestMultiGrid        (void *A, void *B, struct OPS_ *ops);
 /* test EPS in SLEPc */
 int TestEPS(void *A, void *B, int flag, int argc, char *argv[], struct OPS_ *ops);
 
-#define OPS_USE_PHG_MAT  0
-#define OPS_USE_FILE_MAT 1
+#define OPS_USE_PHG_MAT  1
+#define OPS_USE_FILE_MAT 0
 
 #if OPS_USE_SLEPC
 #include <slepceps.h>
@@ -411,65 +411,104 @@ int TestAppSLEPC(int argc, char *argv[])
 	MatrixConvertPHG2PETSC((void **)(&slepc_matA), &phg_mat_A);
 	MatrixConvertPHG2PETSC((void **)(&slepc_matB), &phg_mat_B);
 	DestroyMatrixPHG(&phg_mat_A, &phg_mat_B, &phg_dof_U, &phg_map_M, &phg_grid_G, argc, argv);
+	MatAXPY(slepc_matA, 1.0,slepc_matB,DIFFERENT_NONZERO_PATTERN);
+	MatAXPY(slepc_matA,-1.0,slepc_matB,   SUBSET_NONZERO_PATTERN);
 #elif OPS_USE_FILE_MAT
-	//const char filename_matA[] = "/share/home/hhxie/liyu/MatrixCollection/Andrews.petsc.bin;
-	//const char filename_matA[] = "/share/home/hhxie/liyu/MatrixCollection/c-65.petsc.bin;
-	//const char filename_matA[] = "/share/home/hhxie/liyu/MatrixCollection/Ga10As10H30.petsc.bin;
-	//const char filename_matA[] = "/share/home/hhxie/liyu/MatrixCollection/Ga3As3H12.petsc.bin;
-	//const char filename_matA[] = "/share/home/hhxie/liyu/MatrixCollection/Ga41As41H72.petsc.bin;
-	//const char filename_matA[] = "/share/home/hhxie/liyu/MatrixCollection/Si5H12.petsc.bin;
-	//const char filename_matA[] = "/share/home/hhxie/liyu/MatrixCollection/SiO2.petsc.bin;
-	
 	char filename_matA[PETSC_MAX_PATH_LEN];
-	PetscOptionsGetString(NULL,NULL,"-file",filename_matA,sizeof(filename_matA),&flg);
-	if (!flg) SETERRQ(PETSC_COMM_WORLD,1,"Must indicate a file name with the -file option");
+	PetscOptionsGetString(NULL,NULL,"-filename_matA",filename_matA,sizeof(filename_matA),&flg);
+	if (!flg) SETERRQ(PETSC_COMM_WORLD,1,"Must indicate a file name with the -filename_matA option");
 	slepc_ops->Printf("%s\n",filename_matA);
 	
+	PetscInt nrows, ncols;
 	PetscViewer    viewer;
 	PetscViewerBinaryOpen(PETSC_COMM_WORLD,filename_matA,FILE_MODE_READ,&viewer); 
 	MatCreate(PETSC_COMM_WORLD,&slepc_matA); 
 	MatSetFromOptions(slepc_matA);
 	MatLoad(slepc_matA,viewer); 
 	PetscViewerDestroy(&viewer);
-#if 1
-	PetscReal shift = 0.0;
-	PetscOptionsGetReal(NULL,NULL,"-shift",&shift,&flg);
-	int row_start, row_end, i;
-	MatGetOwnershipRange(slepc_matA,&row_start,&row_end);
-	for (i = row_start; i < row_end; ++i) {
-	   MatSetValue(slepc_matA, i, i, shift, ADD_VALUES);
-	}
-	MatAssemblyBegin(slepc_matA, MAT_FINAL_ASSEMBLY);
-	MatAssemblyEnd(slepc_matA, MAT_FINAL_ASSEMBLY);
-#endif
-	int nrows, ncols;
 	MatGetSize(slepc_matA,&nrows,&ncols);
-	slepc_ops->Printf("%d, %d\n",nrows,ncols);
+	slepc_ops->Printf("matrix A %d, %d\n",nrows,ncols);
 
-#if 1
-	slepc_matB = NULL;
-#else         	
-	const char filename_matB[] = "/share/home/hhxie/MATRIX/fem/M_5.petsc.bin";
-	slepc_ops->Printf("%s\n",filename_matB);
-	PetscViewerBinaryOpen(PETSC_COMM_WORLD,filename_matB,FILE_MODE_READ,&viewer); 
-	MatCreate(PETSC_COMM_WORLD,&slepc_matB); 
-	MatLoad(slepc_matB,viewer); 
-	MatGetSize(slepc_matB,&nrows,&ncols);
-	slepc_ops->Printf("%d, %d\n",nrows,ncols);
-	PetscViewerDestroy(&viewer);
-#endif
-	
+	char filename_matB[PETSC_MAX_PATH_LEN];
+	PetscOptionsGetString(NULL,NULL,"-filename_matB",filename_matB,sizeof(filename_matA),&flg);
+	if (flg) {
+		slepc_ops->Printf("%s\n",filename_matB);
+		PetscViewerBinaryOpen(PETSC_COMM_WORLD,filename_matB,FILE_MODE_READ,&viewer); 
+		MatCreate(PETSC_COMM_WORLD,&slepc_matB); 
+		MatLoad(slepc_matB,viewer); 
+		PetscViewerDestroy(&viewer);
+		MatGetSize(slepc_matB,&nrows,&ncols);
+		slepc_ops->Printf("matrix B %d, %d\n",nrows,ncols);
+	}
+	else {
+		slepc_matB = NULL;
+	}
+
 #else
    	//PetscInt n = 3750, m = 3750;
    	PetscInt n = 120, m = 120;
    	GetPetscMat(&slepc_matA, &slepc_matB, n, m);
 #endif
-
 	//slepc_ops->MatView((void*)slepc_matA, slepc_ops);
 	//slepc_ops->MatView((void*)slepc_matB, slepc_ops);
 
-	//pas_ops->MatView((void*)&pas_matA,pas_ops);
-	//pas_ops->MatView((void*)&pas_matB,pas_ops);
+	int row_start, row_end, i;
+	PetscInt           nc;
+	const PetscInt    *aj;
+	const PetscScalar *aa;
+#if 0
+	MatGetOwnershipRange(slepc_matA,&row_start,&row_end);
+	for (i = row_start; i < row_end; ++i) {
+		MatGetRow(slepc_matA,i,&nc,&aj,&aa);
+		PetscPrintf(PETSC_COMM_WORLD,"row %d nc %d\n",i,nc);
+		MatRestoreRow(slepc_matA,i,&nc,&aj,&aa);
+	}
+	MatGetOwnershipRange(slepc_matB,&row_start,&row_end);
+	for (i = row_start; i < row_end; ++i) {
+		MatGetRow(slepc_matB,i,&nc,&aj,&aa);
+		PetscPrintf(PETSC_COMM_WORLD,"row %d nc %d\n",i,nc);
+		MatRestoreRow(slepc_matB,i,&nc,&aj,&aa);
+	}
+#endif
+
+	PetscReal shift = 0.0;
+	PetscOptionsGetReal(NULL,NULL,"-shift",&shift,&flg);
+	if (slepc_matB==NULL) {
+		if (flg) {
+			MatGetOwnershipRange(slepc_matA,&row_start,&row_end);
+			for (i = row_start; i < row_end; ++i) {
+				MatSetValue(slepc_matA, i, i, shift, ADD_VALUES);
+			}
+		}
+	}
+	else {
+		/* should confirm A and B have same non-zero structure */
+		if (flg) {
+			/*A <- A + shift*B */
+			/* SAME_NONZERO_PATTERN, DIFFERENT_NONZERO_PATTERN or SUBSET_NONZERO_PATTERN */
+#if 1
+			MatAXPY(slepc_matA,shift,slepc_matB,DIFFERENT_NONZERO_PATTERN);
+#else
+
+			MatGetOwnershipRange(slepc_matB,&row_start,&row_end);
+			for (i = row_start; i < row_end; ++i) {
+				MatGetRow(slepc_matB,i,&nc,&aj,&aa);
+				int inc = 1;
+				double *tmp_aa = malloc(nc*sizeof(double));
+				memset(tmp_aa,0,nc*sizeof(double));
+				/* tmp_aa = shift*aa */
+				daxpy(&nc,&shift,aa,&inc,tmp_aa,&inc);
+				MatSetValues(slepc_matA,1,&i,nc,aj,tmp_aa,ADD_VALUES);
+				free(tmp_aa);
+
+				MatRestoreRow(slepc_matB,i,&nc,&aj,&aa);
+			}
+#endif
+		}
+	}
+	MatAssemblyBegin(slepc_matA, MAT_FINAL_ASSEMBLY);
+	MatAssemblyEnd(slepc_matA, MAT_FINAL_ASSEMBLY);
+
 
 	ops = slepc_ops; matA = (void*)(slepc_matA); matB = (void*)(slepc_matB);
 	
@@ -555,8 +594,8 @@ int TestEPS(void *A, void *B, int flag, int argc, char *argv[], struct OPS_ *ops
 	EPS eps; EPSType type; 
 	PetscInt nev, ncv, mpd, max_it, nconv, its;
 	PetscReal tol;
-	nev = 100; ncv = 2*nev; mpd = ncv;
-	tol = 1e-7; max_it = 2000;
+	nev = 800; ncv = nev+nev/5; mpd = ncv;
+	tol = 1e-12; max_it = 2000;
 	EPSCreate(PETSC_COMM_WORLD,&eps);
 	EPSSetOperators(eps,(Mat)A,(Mat)B);
 	if (B==NULL)
